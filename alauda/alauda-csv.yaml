@@ -9,10 +9,10 @@ metadata:
   annotations:
     provider: '{"zh":"Alauda", "en": "Alauda"}'
     provider-type: platform
-    operatorframework.io/suggested-namespace: opentelemetry-operator
+    operatorframework.io/suggested-namespace: opentelemetry-operator2
     containerImage: build-harbor.alauda.cn/asm/opentelemetry-operator2:OPENTELEMETRY-OPERATOR2-TAG-PLACEHOLDER
     support: Alauda
-  name: opentelemetry-operator2.OPENTELEMETRY-OPERATOR2-TAG-PLACEHOLDER
+  name: opentelemetry-operator2.vOPENTELEMETRY-OPERATOR2-TAG-PLACEHOLDER
   namespace: placeholder
 spec:
   description: |-

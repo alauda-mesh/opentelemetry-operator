@@ -3,22 +3,24 @@ name: Alauda Release workflow
 on:
   workflow_dispatch:
     inputs:
+      # 用于生成 github tag
       release_version:
-        description: "Release version（用于生成 github tag）"
+        description: "Release version"
         required: true
         default: "2.0.0"
       bundle_channels:
         description: "Bundle channels"
         required: true
         default: "stable"
+      #用于构建 bundle 和 operator 镜像
       bundle_version:
-        description: "Bundle and Operator version（用于构建 bundle 和 operator 镜像）"
+        description: "Bundle and Operator version"
         required: true
-        default: "v0.144.0-r0"
+        default: "0.144.0-r0"
       collector_tag:
-        description: "Collector tag（OpenTelemetry Collector 镜像 tag）"
+        description: "OpenTelemetry Collector tag"
         required: true
-        default: "0.144.5-r0"
+        default: "0.145.0-r0"
       is_draft_release:
         description: "Draft release"
         type: boolean
@@ -30,16 +32,22 @@ on:
         required: false
         default: false
 
-run-name: Release ${{ inputs.release_version }}
+run-name: Release ${{ inputs.release_version }} (Operator ${{ inputs.bundle_version }}, Collector ${{ inputs.collector_tag }})
 
 env:
-  VERSION: ${{ inputs.release_version }}
-  BUNDLE_VERSION: ${{ inputs.bundle_version }}
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GOPROXY: "https://goproxy.cn,direct"
+  RELEASE_VERSION: ${{ inputs.release_version }}
   OPERATOR_VERSION: ${{ inputs.bundle_version }}
+  BUNDLE_VERSION: v${{ inputs.bundle_version }}
   COLLECTOR_TAG: ${{ inputs.collector_tag }}
   PLATFORMS: linux/amd64,linux/arm64
   IMG_PREFIX: build-harbor.alauda.cn/asm
   IMG_REPO: opentelemetry-operator2
+
+permissions:
+  # 允许创建 release
+  contents: write
 
 jobs:
   release:
@@ -89,7 +97,7 @@ jobs:
       - name: Generate bundle metadata
         run: |
           make bundle \
-            -e VERSION=$BUNDLE_VERSION \
+            -e VERSION=$OPERATOR_VERSION \
             -e BUNDLE_VARIANT=community \
             -e CHANNELS=$CHANNELS \
             -e IMG_PREFIX=$IMG_PREFIX \
@@ -97,10 +105,11 @@ jobs:
         env:
           CHANNELS: ${{ inputs.bundle_channels }}
 
-      - name: Alauda patch CSV
+      # self host 主机需要已安装 yq v4.35.2（高版本目前有 memlock limit 权限问题）
+      - name: Alauda patch bundle
         run: |
           make alauda-patch \
-            -e ALAUDA_OPERATOR2_TAG=$BUNDLE_VERSION \
+            -e ALAUDA_OPERATOR2_TAG=$OPERATOR_VERSION \
             -e ALAUDA_COLLECTOR_TAG=$COLLECTOR_TAG
 
       - name: Build and push bundle image
@@ -118,9 +127,9 @@ jobs:
 
       - name: Create GitHub release
         run: |
-          gh release create $VERSION \
+          gh release create $RELEASE_VERSION \
             --target ${{ github.ref_name }} \
-            --title "Alauda Build of OpenTelemetry $VERSION" \
+            --title "Alauda Build of OpenTelemetry $RELEASE_VERSION" \
             --generate-notes \
             $GH_RELEASE_FLAGS
         env:
