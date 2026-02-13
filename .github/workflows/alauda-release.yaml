@@ -82,6 +82,7 @@ jobs:
             arch=${platform#*/}
             echo "Building manager for $arch"
             make manager ARCH=$arch \
+              -e VERSION=$OPERATOR_VERSION \
               -e COMMON_LDFLAGS="-s -w ${{ vars.LD_EXTRAFLAGS }}"
           done
 
