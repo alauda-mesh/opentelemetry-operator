@@ -2,7 +2,7 @@
 
 # 对 Community bundle CSV 进行后处理修改
 # 用法: ./hack/alauda-patch.sh <operator2-image-tag> <collector-image-tag>
-# 示例: ./hack/alauda-patch.sh v0.144.0-r0 0.145.0-r0
+# 示例: ./hack/alauda-patch.sh 0.144.0-r0 0.145.0-r0
 
 set -euo pipefail
 
@@ -40,3 +40,13 @@ yq -i '
 sed -i.bak "s|OPENTELEMETRY-OPERATOR2-TAG-PLACEHOLDER|${OPERATOR2_TAG}|g" "${CSV_FILE}"
 sed -i.bak "s|OPENTELEMETRY-COLLECTOR-TAG-PLACEHOLDER|${COLLECTOR_TAG}|g" "${CSV_FILE}"
 rm "${CSV_FILE}.bak"
+
+# 3. 将 bundle 元数据中的 opentelemetry-operator 替换为 opentelemetry-operator2
+ANNOTATIONS_FILE="bundle/community/metadata/annotations.yaml"
+DOCKERFILE="bundle/community/bundle.Dockerfile"
+
+sed -i.bak "s|opentelemetry-operator|opentelemetry-operator2|g" "${ANNOTATIONS_FILE}"
+rm "${ANNOTATIONS_FILE}.bak"
+
+sed -i.bak "s|opentelemetry-operator|opentelemetry-operator2|g" "${DOCKERFILE}"
+rm "${DOCKERFILE}.bak"
