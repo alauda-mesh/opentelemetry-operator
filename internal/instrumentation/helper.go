@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/strings/slices"
 
 	"github.com/open-telemetry/opentelemetry-operator/internal/naming"
 	"github.com/open-telemetry/opentelemetry-operator/pkg/constants"
@@ -132,7 +132,8 @@ func instrVolume(volumeClaimTemplate corev1.PersistentVolumeClaimTemplate, name 
 			EmptyDir: &corev1.EmptyDirVolumeSource{
 				SizeLimit: volumeSize(quantity),
 			},
-		}}
+		},
+	}
 }
 
 func volumeSize(quantity *resource.Quantity) *resource.Quantity {
@@ -158,7 +159,7 @@ func isValidContainersAnnotation(containersAnnotation string) error {
 }
 
 // setContainersFromAnnotation sets the containers associated to one intrumentation based on the content of the provided annotation.
-func setContainersFromAnnotation(inst *instrumentationWithContainers, annotation string, ns metav1.ObjectMeta, pod metav1.ObjectMeta) error {
+func setContainersFromAnnotation(inst *instrumentationWithContainers, annotation string, ns, pod metav1.ObjectMeta) error {
 	annotationValue := annotationValue(ns, pod, annotation)
 	if annotationValue == "" {
 		return nil

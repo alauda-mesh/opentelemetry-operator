@@ -5,6 +5,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -13,7 +14,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
-	"github.com/shirou/gopsutil/process"
+	"github.com/shirou/gopsutil/v4/process"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/metric"
@@ -43,9 +44,8 @@ type MetricReporter struct {
 // TODO: do more validation on the endpoint, allow for gRPC.
 // TODO: set global provider and add more metrics to be reported.
 func NewMetricReporter(logger logr.Logger, dest *protobufs.TelemetryConnectionSettings, agentType string, agentVersion string, instanceId uuid.UUID) (*MetricReporter, error) {
-
 	if dest.DestinationEndpoint == "" {
-		return nil, fmt.Errorf("metric destination must specify DestinationEndpoint")
+		return nil, errors.New("metric destination must specify DestinationEndpoint")
 	}
 
 	u, err := url.Parse(dest.DestinationEndpoint)
@@ -96,7 +96,7 @@ func NewMetricReporter(logger logr.Logger, dest *protobufs.TelemetryConnectionSe
 
 	reporter.meter = provider.Meter("opamp")
 
-	reporter.process, err = process.NewProcess(int32(os.Getpid())) //nolint: gosec // this is guaranteed to not overflow
+	reporter.process, err = process.NewProcess(int32(os.Getpid())) //nolint:gosec // this is guaranteed to not overflow
 	if err != nil {
 		return nil, fmt.Errorf("cannot query own process: %w", err)
 	}

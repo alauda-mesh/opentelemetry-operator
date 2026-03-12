@@ -16,11 +16,11 @@ on:
       bundle_version:
         description: "Bundle and Operator version"
         required: true
-        default: "0.144.0-r0"
+        default: "0.146.0-r0"
       collector_tag:
         description: "OpenTelemetry Collector tag"
         required: true
-        default: "0.145.0-r0"
+        default: "0.147.0-r0"
       is_draft_release:
         description: "Draft release"
         type: boolean
@@ -74,7 +74,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "~1.25.7"
+          go-version: "~1.26.1"
 
       - name: Build the operator binary for each supported architecture
         run: |
