@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	name     = "jaeger_query"
-	port     = 16686
-	grpcPort = 16685
+	name = "jaeger_query"
+	port = 16686
 )
 
 var _ components.Parser = &components.GenericParser[*JaegerQueryExtensionConfig]{}
@@ -63,17 +62,17 @@ func ParseJaegerQueryExtensionConfig(logger logr.Logger, name string, defaultPor
 		logger.WithValues("receiver", defaultPort.Name).Error(err, "couldn't parse the endpoint's port and no default port set")
 		return []corev1.ServicePort{}, err
 	}
-	port := cfg.GetPortNumOrDefault(logger, defaultPort.Port)
+	httpPort := cfg.GetPortNumOrDefault(logger, defaultPort.Port)
 	svcPort := defaultPort
-	svcPort.Name = naming.PortName(name, port)
-	ports := []corev1.ServicePort{components.ConstructServicePort(svcPort, port)}
+	svcPort.Name = naming.PortName(name, httpPort)
+	ports := []corev1.ServicePort{components.ConstructServicePort(svcPort, httpPort)}
 
 	// Add gRPC port if explicitly configured
 	if cfg.GRPC.Endpoint != "" {
 		grpcPortNum, err := components.PortFromEndpoint(cfg.GRPC.Endpoint)
 		if err != nil {
 			logger.WithValues("extension", name).Error(err, "couldn't parse the gRPC endpoint's port")
-		} else if grpcPortNum != port {
+		} else if grpcPortNum != httpPort {
 			// Only add gRPC port if it differs from the HTTP port
 			grpcSvcPort := &corev1.ServicePort{
 				TargetPort: intstr.FromInt32(grpcPortNum),

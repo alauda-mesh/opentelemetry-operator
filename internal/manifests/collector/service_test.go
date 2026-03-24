@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -511,7 +512,7 @@ func TestExtensionService(t *testing.T) {
 				assert.NotNil(t, actual)
 				assert.Equal(t, actual.Name, naming.ExtensionService(tc.params.OtelCol.Name))
 				// ports assertion
-				assert.Equal(t, len(tc.expectedPorts), len(actual.Spec.Ports))
+				require.Equal(t, len(tc.expectedPorts), len(actual.Spec.Ports))
 				for i, expectedPort := range tc.expectedPorts {
 					assert.Equal(t, expectedPort.Name, actual.Spec.Ports[i].Name)
 					assert.Equal(t, expectedPort.Port, actual.Spec.Ports[i].Port)

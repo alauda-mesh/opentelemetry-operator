@@ -110,6 +110,29 @@ func TestJaegerQueryExtensionParser_samePort(t *testing.T) {
 	}}, ports)
 }
 
+func TestJaegerQueryExtensionParser_invalidGrpcEndpoint(t *testing.T) {
+	jaegerBuilder := NewJaegerQueryExtensionParserBuilder()
+	genericBuilder, err := jaegerBuilder.Build()
+	require.NoError(t, err)
+
+	// Config with a malformed gRPC endpoint that cannot be parsed — should gracefully
+	// return only the HTTP port without error
+	cfg := map[string]any{
+		"http": map[string]any{"endpoint": "0.0.0.0:16686"},
+		"grpc": map[string]any{"endpoint": "invalid-no-port"},
+	}
+	defaultCfg, err := genericBuilder.GetDefaultConfig(logr.Discard(), cfg)
+	require.NoError(t, err)
+
+	ports, err := genericBuilder.Ports(logr.Discard(), "jaeger_query", defaultCfg)
+	require.NoError(t, err)
+	assert.Equal(t, []corev1.ServicePort{{
+		Name:       "jaeger-query",
+		Port:       16686,
+		TargetPort: intstr.FromInt32(16686),
+	}}, ports)
+}
+
 func TestJaegerQueryExtensionParser_config(t *testing.T) {
 	jaegerBuilder := NewJaegerQueryExtensionParserBuilder()
 	genericBuilder, err := jaegerBuilder.Build()
