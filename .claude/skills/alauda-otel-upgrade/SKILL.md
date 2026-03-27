@@ -106,11 +106,11 @@ gh run list \
    - 提取最大的 `n`，新值 = `n + 1`；若无历史记录，`n = 0`
    - 最终值示例：`2.0.0-rc.0`
 
-2. **`bundle_version`**（`<target-version-without-v>-r<n>`）：
+2. **`bundle_version`**（`<target-version-without-v>-rc.<n>`）：
    - 目标版本去掉 `v` 前缀（如 `0.147.0`）
-   - 筛选历史 runs 中 `displayTitle` 包含 `0.147.0-r` 的记录，提取最大 `n`
+   - 筛选历史 runs 中 `displayTitle` 包含 `Operator 0.147.0-rc.` 的记录，提取最大 `n`
    - 新值 = `n + 1`；若无历史记录，`n = 0`
-   - 最终值示例：`0.147.0-r0`
+   - 最终值示例：`0.147.0-rc.0`
 
 3. **`collector_tag`**：使用 workflow 中的默认值，无需修改。
 
