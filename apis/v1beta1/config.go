@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"sort"
+	"slices"
+	"strings"
 
 	"dario.cat/mergo"
 	"github.com/go-logr/logr"
@@ -100,6 +101,21 @@ type Pipeline struct {
 	Receivers  []string `json:"receivers" yaml:"receivers"`
 }
 
+// Config encapsulates collector config.
+type Config struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Receivers AnyConfig `json:"receivers" yaml:"receivers"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Exporters AnyConfig `json:"exporters" yaml:"exporters"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Processors *AnyConfig `json:"processors,omitempty" yaml:"processors,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Connectors *AnyConfig `json:"connectors,omitempty" yaml:"connectors,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Extensions *AnyConfig `json:"extensions,omitempty" yaml:"extensions,omitempty"`
+	Service    Service    `json:"service" yaml:"service"`
+}
+
 // GetEnabledComponents constructs a list of enabled components by component type.
 func (c *Config) GetEnabledComponents() map[ComponentKind]map[string]any {
 	toReturn := map[ComponentKind]map[string]any{
@@ -130,21 +146,6 @@ func (c *Config) GetEnabledComponents() map[ComponentKind]map[string]any {
 		toReturn[KindExtension][componentId] = struct{}{}
 	}
 	return toReturn
-}
-
-// Config encapsulates collector config.
-type Config struct {
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Receivers AnyConfig `json:"receivers" yaml:"receivers"`
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Exporters AnyConfig `json:"exporters" yaml:"exporters"`
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Processors *AnyConfig `json:"processors,omitempty" yaml:"processors,omitempty"`
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Connectors *AnyConfig `json:"connectors,omitempty" yaml:"connectors,omitempty"`
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Extensions *AnyConfig `json:"extensions,omitempty" yaml:"extensions,omitempty"`
-	Service    Service    `json:"service" yaml:"service"`
 }
 
 // getRbacRulesForComponentKinds gets the RBAC Rules for the given ComponentKind(s).
@@ -227,8 +228,8 @@ func (c *Config) getPortsForComponentKinds(logger logr.Logger, componentKinds ..
 		}
 	}
 
-	sort.Slice(ports, func(i, j int) bool {
-		return ports[i].Name < ports[j].Name
+	slices.SortFunc(ports, func(i, j corev1.ServicePort) int {
+		return strings.Compare(i.Name, j.Name)
 	})
 
 	return ports, nil
@@ -259,8 +260,8 @@ func (c *Config) getEnvironmentVariablesForComponentKinds(logger logr.Logger, co
 		}
 	}
 
-	sort.Slice(envVars, func(i, j int) bool {
-		return envVars[i].Name < envVars[j].Name
+	slices.SortFunc(envVars, func(i, j corev1.EnvVar) int {
+		return strings.Compare(i.Name, j.Name)
 	})
 
 	return envVars, nil
@@ -427,8 +428,8 @@ func (c *Config) Yaml() (string, error) {
 	return buf.String(), nil
 }
 
-// Returns null objects in the config.
-func (c *Config) nullObjects() []string {
+// NullObjects returns null objects in the config.
+func (c *Config) NullObjects() []string {
 	var nullKeys []string
 	if nulls := getNullValuedKeys(c.Receivers.Object); len(nulls) > 0 {
 		nullKeys = append(nullKeys, addPrefix("receivers.", nulls)...)
@@ -452,7 +453,7 @@ func (c *Config) nullObjects() []string {
 		}
 	}
 	// Make the return deterministic. The config uses maps therefore processing order is non-deterministic.
-	sort.Strings(nullKeys)
+	slices.Sort(nullKeys)
 	return nullKeys
 }
 
@@ -475,7 +476,7 @@ const (
 // from the env var, i.e. the address looks like "${env:POD_IP}:4317", "${env:POD_IP}", or "${POD_IP}".
 // In cases which the port itself is a variable, i.e. "${env:POD_IP}:${env:PORT}", this returns an error. This happens
 // because the port is used to generate Service objects and mappings.
-func (s *Service) MetricsEndpoint(logger logr.Logger) (string, int32, error) {
+func (s *Service) MetricsEndpoint(logger logr.Logger) (host string, port int32, err error) {
 	telemetry := s.GetTelemetry(logger)
 	if telemetry == nil {
 		return defaultServiceHost, defaultServicePort, nil

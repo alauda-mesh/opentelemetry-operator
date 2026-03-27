@@ -5,7 +5,7 @@ package instrumentation
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -202,9 +202,9 @@ LoadModule otel_apache_module %[1]s/WebServerModule/Apache/libmod_apache_otel%[2
 	}
 	serviceName := chooseServiceName(pod, useLabelsForResourceAttributes, resourceMap, container)
 	serviceNamespace := pod.GetNamespace()
-	if len(serviceNamespace) == 0 {
+	if serviceNamespace == "" {
 		serviceNamespace = resourceMap[string(semconv.K8SNamespaceNameKey)]
-		if len(serviceNamespace) == 0 {
+		if serviceNamespace == "" {
 			serviceNamespace = "apache-httpd"
 		}
 	}
@@ -244,7 +244,7 @@ LoadModule otel_apache_module %[1]s/WebServerModule/Apache/libmod_apache_otel%[2
 	for key := range attrMap {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	for _, key := range keys {
 		fmt.Fprintf(&configFileContent, "%s %s\n", key, attrMap[key])

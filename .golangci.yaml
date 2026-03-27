@@ -23,34 +23,12 @@ linters:
       disabled-checks:
         - appendAssign
         - appendCombine
-        - argOrder
-        - assignOp
         - builtinShadow
-        - commentedOutCode
         - deferInLoop
-        - deprecatedComment
-        - elseif
-        - emptyFallthrough
-        - emptyStringTest
         - exitAfterDefer
-        - filepathJoin
         - hugeParam
-        - ifElseChain
         - importShadow
-        - nestingReduce
-        - octalLiteral
-        - offBy1
-        - paramTypeCombine
         - rangeValCopy
-        - redundantSprint
-        - regexpMust
-        - regexpSimplify
-        - sloppyReassign
-        - stringXbytes
-        - typeDefFirst
-        - typeSwitchVar
-        - unlambda
-        - unnamedResult
         - whyNoLint
       enable-all: true
     goheader:
@@ -91,7 +69,6 @@ linters:
         - name: add-constant
           disabled: true
         - name: bare-return
-          disabled: true # FIXME
         - name: blank-imports
           disabled: true
         - name: context-as-argument
@@ -104,7 +81,6 @@ linters:
         - name: confusing-naming
           disabled: true # FIXME
         - name: confusing-results
-          disabled: true # FIXME
         - name: comment-spacings
           arguments:
             - +kubebuilder
@@ -121,7 +97,6 @@ linters:
         - name: error-naming
           disabled: true
         - name: error-strings
-          disabled: true # FIXME
         - name: exported
           disabled: true
         - name: flag-parameter
@@ -145,7 +120,6 @@ linters:
         - name: package-directory-mismatch
           disabled: true # FIXME
         - name: receiver-naming
-          disabled: true
         - name: redundant-test-main-exit
           disabled: true # FIXME
         - name: redefines-builtin-id
@@ -203,6 +177,9 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - staticcheck
+        text: ".*.VolumeSizeLimit is deprecated:"
+      - linters:
           - gosec
         path: _test\.go
       - linters:
@@ -212,6 +189,7 @@ formatters:
   enable:
     - gci
     - gofmt
+    - gofumpt
   settings:
     gci:
       sections:
@@ -220,5 +198,7 @@ formatters:
         - prefix(github.com/open-telemetry/opentelemetry-operator)
     gofmt:
       simplify: true
+    gofumpt:
+      extra-rules: true
   exclusions:
     generated: lax

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 	"unsafe"
@@ -728,16 +727,12 @@ func (i *sdkInjector) addParentResourceLabels(ctx context.Context, uid bool, ns 
 			nsn := types.NamespacedName{Namespace: ns.Name, Name: owner.Name}
 			backOff := wait.Backoff{Duration: 10 * time.Millisecond, Factor: 1.5, Jitter: 0.1, Steps: 20, Cap: 2 * time.Second}
 
-			checkError := func(err error) bool {
-				return apierrors.IsNotFound(err)
-			}
-
 			getReplicaSet := func() error {
 				return i.client.Get(ctx, nsn, &rs)
 			}
 
 			// use a retry loop to get the Deployment. A single call to client.get fails occasionally
-			err := retry.OnError(backOff, checkError, getReplicaSet)
+			err := retry.OnError(backOff, apierrors.IsNotFound, getReplicaSet)
 			if err != nil {
 				i.logger.Error(err, "failed to get replicaset", "replicaset", nsn.Name, "namespace", nsn.Namespace)
 			}
@@ -768,16 +763,12 @@ func (i *sdkInjector) addParentResourceLabels(ctx context.Context, uid bool, ns 
 			nsn := types.NamespacedName{Namespace: ns.Name, Name: owner.Name}
 			backOff := wait.Backoff{Duration: 10 * time.Millisecond, Factor: 1.5, Jitter: 0.1, Steps: 20, Cap: 2 * time.Second}
 
-			checkError := func(err error) bool {
-				return apierrors.IsNotFound(err)
-			}
-
 			getJob := func() error {
 				return i.client.Get(ctx, nsn, &j)
 			}
 
 			// use a retry loop to get the Job. A single call to client.get fails occasionally
-			err := retry.OnError(backOff, checkError, getJob)
+			err := retry.OnError(backOff, apierrors.IsNotFound, getJob)
 			if err != nil {
 				i.logger.Error(err, "failed to get job", "job", nsn.Name, "namespace", nsn.Namespace)
 			}
@@ -796,7 +787,7 @@ func resourceMapToStr(res map[string]string) string {
 	for k := range res {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	str := ""
 	for _, k := range keys {
