@@ -21,6 +21,14 @@ on:
         description: "OpenTelemetry Collector tag"
         required: true
         default: "0.147.0-r0"
+      jaeger_tag:
+        description: "Jaeger tag"
+        required: true
+        default: "2.16.0-r1"
+      oauth2_proxy_tag:
+        description: "OAuth2 Proxy tag"
+        required: true
+        default: "v7.15.1-r0"
       is_draft_release:
         description: "Draft release"
         type: boolean
@@ -41,6 +49,8 @@ env:
   OPERATOR_VERSION: ${{ inputs.bundle_version }}
   BUNDLE_VERSION: v${{ inputs.bundle_version }}
   COLLECTOR_TAG: ${{ inputs.collector_tag }}
+  JAEGER_TAG: ${{ inputs.jaeger_tag }}
+  OAUTH2_PROXY_TAG: ${{ inputs.oauth2_proxy_tag }}
   PLATFORMS: linux/amd64,linux/arm64
   IMG_PREFIX: build-harbor.alauda.cn/asm
   IMG_REPO: opentelemetry-operator2
@@ -114,7 +124,9 @@ jobs:
         run: |
           make alauda-patch \
             -e ALAUDA_OPERATOR2_TAG=$OPERATOR_VERSION \
-            -e ALAUDA_COLLECTOR_TAG=$COLLECTOR_TAG
+            -e ALAUDA_COLLECTOR_TAG=$COLLECTOR_TAG \
+            -e ALAUDA_JAEGER_TAG=$JAEGER_TAG \
+            -e ALAUDA_OAUTH2_PROXY_TAG=$OAUTH2_PROXY_TAG
 
       - name: Build and push bundle image
         continue-on-error: true

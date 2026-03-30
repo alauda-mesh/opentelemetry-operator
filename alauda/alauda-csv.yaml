@@ -53,3 +53,9 @@ spec:
       image: build-harbor.alauda.cn/asm/opentelemetry-operator2:OPENTELEMETRY-OPERATOR2-TAG-PLACEHOLDER
     - name: component.opentelemetry-collector
       image: build-harbor.alauda.cn/asm/opentelemetry-collector:OPENTELEMETRY-COLLECTOR-TAG-PLACEHOLDER
+    - name: component.jaeger
+      image: build-harbor.alauda.cn/asm/jaeger:JAEGER-TAG-PLACEHOLDER
+    - name: component.jaeger-es-rollover
+      image: build-harbor.alauda.cn/asm/jaeger-es-rollover:JAEGER-TAG-PLACEHOLDER
+    - name: component.oauth2-proxy
+      image: build-harbor.alauda.cn/asm/oauth2-proxy:OAUTH2-PROXY-TAG-PLACEHOLDER
