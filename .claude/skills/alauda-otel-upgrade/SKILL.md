@@ -114,11 +114,15 @@ gh run list \
 
 3. **`collector_tag`**：使用 workflow 中的默认值，无需修改。
 
-4. **`bundle_channels`**：使用默认值 `stable`。
+4. **`jaeger_tag`**：使用 workflow 中的默认值，无需修改。
 
-5. **`is_draft_release`**：`true`（测试用）
+5. **`oauth2_proxy_tag`**：使用 workflow 中的默认值，无需修改。
 
-6. **`is_pre_release`**：`false`
+6. **`bundle_channels`**：使用默认值 `stable`。
+
+7. **`is_draft_release`**：`true`（测试用）
+
+8. **`is_pre_release`**：`false`
 
 **展示计算结果**，请用户确认参数后再触发。
 
@@ -132,6 +136,8 @@ gh workflow run alauda-release.yaml \
   --field bundle_channels=stable \
   --field bundle_version=<bundle_version> \
   --field collector_tag=<collector_tag> \
+  --field jaeger_tag=<jaeger_tag> \
+  --field oauth2_proxy_tag=<oauth2_proxy_tag> \
   --field is_draft_release=true \
   --field is_pre_release=false
 ```
