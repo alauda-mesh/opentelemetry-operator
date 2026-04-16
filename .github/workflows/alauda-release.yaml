@@ -24,7 +24,7 @@ on:
       jaeger_tag:
         description: "Jaeger tag"
         required: true
-        default: "2.16.0-r1"
+        default: "2.16.0-r2"
       oauth2_proxy_tag:
         description: "OAuth2 Proxy tag"
         required: true
