@@ -112,10 +112,10 @@ bash "$SKILL_DIR/scripts/update-go-version.sh" <X.Y.Z>
 bash "$SKILL_DIR/scripts/gomod-bump.sh" <module@vX.Y.Z> [...]   # 建议 run_in_background: true
 ```
 
-本轮只改了 go-version、没动 go.mod 时，用 `gomod-bump.sh --build-only` 单做构建验证。
-脚本会自动 tidy「replace 了根模块」的嵌套模块，然后跑**两步**验证：`go build ./...`
-再加 `make generate`——后者是流水线编译前的必经步骤，也是唯一能提前暴露跨模块失配的本地手段，
-**只看 `go build` 通过就提交 = 假的绿灯**。
+脚本先对根模块 `go get` + `go mod tidy`，再自动 tidy「replace 了根模块」的嵌套模块，
+最后跑**两步**验证：`go build ./...` 加 `make generate`——后者是流水线编译前的必经步骤，
+也是唯一能提前暴露跨模块失配的本地手段，**只看 `go build` 通过就提交 = 假的绿灯**。
+本轮只改了 go-version、没动 go.mod 时，用 `gomod-bump.sh --build-only` 只跑这两步验证。
 构建验证实测：热 build cache 约 30 秒，**冷缓存（或依赖大面积升级后）约 7.5 分钟**——
 后者后台跑起来之后就去写 PR 正文、顺手把 `trigger-release.sh --dry-run` 也跑掉，别干等。
 
