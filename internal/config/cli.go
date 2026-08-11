@@ -61,6 +61,8 @@ func CreateCLIParser(cfg Config) *pflag.FlagSet {
 	f.String("zap-time-key", "timestamp", "The time key to be used in the customized Log Encoder")
 	f.String("zap-level-format", "uppercase", "The level format to be used in the customized Log Encoder")
 	f.Bool("enable-webhooks", cfg.EnableWebhooks, "Enable webhooks for the controllers")
+	f.String("watch-namespace", cfg.WatchNamespace, "Comma-separated list of namespaces the operator should watch for CustomResources. Empty means watch all namespaces.")
+	f.Int32("openshift-webhook-replicas", cfg.OpenShiftWebhookReplicas, "Number of replicas for the standalone pod webhook deployment on OpenShift. Set 0 to disable.")
 
 	return f
 }
@@ -159,6 +161,8 @@ func ApplyCLI(cfg *Config) error {
 				cfg.Zap.LevelFormat, _ = f.GetString("zap-level-format")
 			case "enable-webhooks":
 				cfg.EnableWebhooks, _ = f.GetBool("enable-webhooks")
+			case "watch-namespace":
+				cfg.WatchNamespace, _ = f.GetString("watch-namespace")
 			case "create-rbac-permissions":
 				val, _ := f.GetBool("create-rbac-permissions")
 				if val {
@@ -166,6 +170,8 @@ func ApplyCLI(cfg *Config) error {
 				} else {
 					cfg.CreateRBACPermissions = autoRBAC.NotAvailable
 				}
+			case "openshift-webhook-replicas":
+				cfg.OpenShiftWebhookReplicas, _ = f.GetInt32("openshift-webhook-replicas")
 			}
 		}
 	})

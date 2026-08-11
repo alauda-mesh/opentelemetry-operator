@@ -71,6 +71,8 @@ spec:
   serviceAccount: collector
   targetAllocator:
     enabled: true
+    mtls:
+      enabled: true
     prometheusCR:
       enabled: true
       scrapeInterval: 1s
@@ -88,7 +90,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: check-ta
-          image: docker.io/curlimages/curl:latest
+          image: mirror.gcr.io/alpine/curl:latest
           volumeMounts:
             - name: tls-secret
               mountPath: /etc/tls

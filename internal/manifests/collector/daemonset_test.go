@@ -49,10 +49,11 @@ func TestDaemonSetNewDefault(t *testing.T) {
 
 	// verify sha256 podAnnotation
 	expectedAnnotations := map[string]string{
-		"opentelemetry-operator-config/sha256": "fbcdae6a02b2115cd5ca4f34298202ab041d1dfe62edebfaadb48b1ee178231d",
-		"prometheus.io/path":                   "/metrics",
-		"prometheus.io/port":                   "8888",
-		"prometheus.io/scrape":                 "true",
+		"opentelemetry-operator-config/sha256":                   "fbcdae6a02b2115cd5ca4f34298202ab041d1dfe62edebfaadb48b1ee178231d",
+		"prometheus.io/path":                                     "/metrics",
+		"prometheus.io/port":                                     "8888",
+		"prometheus.io/scrape":                                   "true",
+		"operator.opentelemetry.io/prometheus-annotations-added": "true",
 	}
 	assert.Equal(t, expectedAnnotations, d.Spec.Template.Annotations)
 
@@ -182,6 +183,45 @@ func TestDaemonsetHostUsers(t *testing.T) {
 	assert.False(t, *d3.Spec.Template.Spec.HostUsers)
 }
 
+func TestDaemonsetHostAliases(t *testing.T) {
+	params1 := manifests.Params{
+		Config: config.New(),
+		OtelCol: v1beta1.OpenTelemetryCollector{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance",
+				Namespace: "my-namespace",
+			},
+			Spec: v1beta1.OpenTelemetryCollectorSpec{},
+		},
+		Log: testLogger,
+	}
+	// test default (unset)
+	d1, err := DaemonSet(params1)
+	require.NoError(t, err)
+	assert.Empty(t, d1.Spec.Template.Spec.HostAliases)
+
+	// verify hostAliases set
+	aliases := []v1.HostAlias{{IP: "1.2.3.4", Hostnames: []string{"host.local"}}}
+	params2 := manifests.Params{
+		Config: config.New(),
+		OtelCol: v1beta1.OpenTelemetryCollector{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance",
+				Namespace: "my-namespace",
+			},
+			Spec: v1beta1.OpenTelemetryCollectorSpec{
+				OpenTelemetryCommonFields: v1beta1.OpenTelemetryCommonFields{
+					HostAliases: aliases,
+				},
+			},
+		},
+		Log: testLogger,
+	}
+	d2, err := DaemonSet(params2)
+	require.NoError(t, err)
+	assert.Equal(t, aliases, d2.Spec.Template.Spec.HostAliases)
+}
+
 func TestDaemonsetDNSPolicy(t *testing.T) {
 	params1 := manifests.Params{
 		Config: config.New(),
@@ -255,11 +295,12 @@ func TestDaemonsetPodAnnotations(t *testing.T) {
 		"prometheus.io/path":                   "/metrics",
 		"prometheus.io/port":                   "8888",
 		"prometheus.io/scrape":                 "true",
+		"operator.opentelemetry.io/prometheus-annotations-added": "true",
 	}
 
 	// verify
 	assert.Equal(t, "my-instance-collector", ds.Name)
-	assert.Len(t, ds.Spec.Template.Annotations, 5)
+	assert.Len(t, ds.Spec.Template.Annotations, 6)
 	assert.Equal(t, expectedAnnotations, ds.Spec.Template.Annotations)
 }
 
