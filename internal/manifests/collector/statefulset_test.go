@@ -53,10 +53,11 @@ func TestStatefulSetNewDefault(t *testing.T) {
 
 	// verify sha256 podAnnotation
 	expectedAnnotations := map[string]string{
-		"opentelemetry-operator-config/sha256": "fbcdae6a02b2115cd5ca4f34298202ab041d1dfe62edebfaadb48b1ee178231d",
-		"prometheus.io/path":                   "/metrics",
-		"prometheus.io/port":                   "8888",
-		"prometheus.io/scrape":                 "true",
+		"opentelemetry-operator-config/sha256":                   "fbcdae6a02b2115cd5ca4f34298202ab041d1dfe62edebfaadb48b1ee178231d",
+		"prometheus.io/path":                                     "/metrics",
+		"prometheus.io/port":                                     "8888",
+		"prometheus.io/scrape":                                   "true",
+		"operator.opentelemetry.io/prometheus-annotations-added": "true",
 	}
 	assert.Equal(t, expectedAnnotations, ss.Spec.Template.Annotations)
 
@@ -237,6 +238,7 @@ func TestStatefulSetPodAnnotations(t *testing.T) {
 		"prometheus.io/path":                   "/metrics",
 		"prometheus.io/port":                   "8888",
 		"prometheus.io/scrape":                 "true",
+		"operator.opentelemetry.io/prometheus-annotations-added": "true",
 	}
 	// verify
 	assert.Equal(t, "my-instance-collector", ss.Name)
@@ -394,6 +396,50 @@ func TestStatefulSetHostUsers(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, d3.Spec.Template.Spec.HostUsers)
 	assert.False(t, *d3.Spec.Template.Spec.HostUsers)
+}
+
+func TestStatefulSetHostAliases(t *testing.T) {
+	// Test default (unset)
+	otelcol1 := v1beta1.OpenTelemetryCollector{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-instance",
+		},
+	}
+
+	cfg := config.New()
+
+	params1 := manifests.Params{
+		OtelCol: otelcol1,
+		Config:  cfg,
+		Log:     testLogger,
+	}
+
+	d1, err := StatefulSet(params1)
+	require.NoError(t, err)
+	assert.Empty(t, d1.Spec.Template.Spec.HostAliases)
+
+	// Test hostAliases set
+	aliases := []corev1.HostAlias{{IP: "1.2.3.4", Hostnames: []string{"host.local"}}}
+	otelcol2 := v1beta1.OpenTelemetryCollector{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-instance-hostaliases",
+		},
+		Spec: v1beta1.OpenTelemetryCollectorSpec{
+			OpenTelemetryCommonFields: v1beta1.OpenTelemetryCommonFields{
+				HostAliases: aliases,
+			},
+		},
+	}
+
+	params2 := manifests.Params{
+		OtelCol: otelcol2,
+		Config:  cfg,
+		Log:     testLogger,
+	}
+
+	d2, err := StatefulSet(params2)
+	require.NoError(t, err)
+	assert.Equal(t, aliases, d2.Spec.Template.Spec.HostAliases)
 }
 
 func TestStatefulSetDNSPolicy(t *testing.T) {
@@ -982,4 +1028,58 @@ func TestStatefulSetHostPIDCanBeSet(t *testing.T) {
 	d2, err := StatefulSet(params2)
 	require.NoError(t, err)
 	assert.True(t, d2.Spec.Template.Spec.HostPID)
+}
+
+func TestStatefulSetPodManagementPolicy(t *testing.T) {
+	tests := []struct {
+		name                        string
+		podManagementPolicy         appsv1.PodManagementPolicyType
+		expectedPodManagementPolicy appsv1.PodManagementPolicyType
+	}{
+		{
+			name:                        "default to Parallel",
+			podManagementPolicy:         "",
+			expectedPodManagementPolicy: appsv1.ParallelPodManagement,
+		},
+		{
+			name:                        "explicit Parallel",
+			podManagementPolicy:         appsv1.ParallelPodManagement,
+			expectedPodManagementPolicy: appsv1.ParallelPodManagement,
+		},
+		{
+			name:                        "explicit OrderedReady",
+			podManagementPolicy:         appsv1.OrderedReadyPodManagement,
+			expectedPodManagementPolicy: appsv1.OrderedReadyPodManagement,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// prepare
+			otelcol := v1beta1.OpenTelemetryCollector{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-instance",
+				},
+				Spec: v1beta1.OpenTelemetryCollectorSpec{
+					Mode: "statefulset",
+					StatefulSetCommonFields: v1beta1.StatefulSetCommonFields{
+						PodManagementPolicy: test.podManagementPolicy,
+					},
+				},
+			}
+
+			cfg := config.New()
+
+			params := manifests.Params{
+				OtelCol: otelcol,
+				Config:  cfg,
+				Log:     testLogger,
+			}
+
+			ss, err := StatefulSet(params)
+
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedPodManagementPolicy, ss.Spec.PodManagementPolicy)
+		})
+	}
 }

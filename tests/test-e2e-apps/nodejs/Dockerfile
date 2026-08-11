@@ -1,5 +1,5 @@
 # Stage 1: Use an official Node.js image as a base.
-FROM docker.io/library/node:lts-bookworm
+FROM docker.io/library/node:lts-bookworm@sha256:fdddfb3e688158251943d52eba361de991548f6814007acba4917ae6b512d6be
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app

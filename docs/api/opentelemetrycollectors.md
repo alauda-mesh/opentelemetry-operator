@@ -604,7 +604,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         <td><b><a href="#opentelemetrycollectorspecadditionalcontainersindexresizepolicyindex">resizePolicy</a></b></td>
         <td>[]object</td>
         <td>
-          Resources resize policy for the container.<br/>
+          Resources resize policy for the container.
+This field cannot be set on ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2753,7 +2754,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -5330,8 +5330,8 @@ For example, if autoscaling is configured with a memory consumption target of 10
 and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
 triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
 
-This is an alpha field and requires enabling the HPAConfigurableTolerance
-feature gate.<br/>
+This is an beta field and requires the HPAConfigurableTolerance feature
+gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -5450,8 +5450,8 @@ For example, if autoscaling is configured with a memory consumption target of 10
 and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
 triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
 
-This is an alpha field and requires enabling the HPAConfigurableTolerance
-feature gate.<br/>
+This is an beta field and requires the HPAConfigurableTolerance feature
+gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -6634,7 +6634,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         <td><b><a href="#opentelemetrycollectorspecinitcontainersindexresizepolicyindex">resizePolicy</a></b></td>
         <td>[]object</td>
         <td>
-          Resources resize policy for the container.<br/>
+          Resources resize policy for the container.
+This field cannot be set on ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8783,7 +8784,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -10994,7 +10994,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -13977,6 +13976,20 @@ All CR instances which the ServiceAccount has access to will be retrieved. This 
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>denyFSAccessThroughSMs</b></td>
+        <td>boolean</td>
+        <td>
+          DenyFSAccessThroughSMs causes the Target Allocator to drop ServiceMonitor and
+PodMonitor endpoints that reference arbitrary files on the file system. When
+enabled, endpoints with bearerTokenFile, tlsConfig.caFile, tlsConfig.certFile,
+or tlsConfig.keyFile are dropped from the produced scrape configuration while
+the remaining endpoints are kept. This prevents tenants from stealing the
+Collector's service account token via ServiceMonitor bearerTokenFile
+references. This is the equivalent of ArbitraryFSAccessThroughSMs.Deny from
+the Prometheus Operator.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>enabled</b></td>
         <td>boolean</td>
         <td>
@@ -14181,7 +14194,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -14540,9 +14552,10 @@ If the key is empty, operator must be Exists; this combination means to match al
         <td>string</td>
         <td>
           Operator represents a key's relationship to the value.
-Valid operators are Exists and Equal. Defaults to Equal.
+Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
 Exists is equivalent to wildcard for value, so that a pod can
-tolerate all taints of a particular category.<br/>
+tolerate all taints of a particular category.
+Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -14853,9 +14866,10 @@ If the key is empty, operator must be Exists; this combination means to match al
         <td>string</td>
         <td>
           Operator represents a key's relationship to the value.
-Valid operators are Exists and Equal. Defaults to Equal.
+Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
 Exists is equivalent to wildcard for value, so that a pod can
-tolerate all taints of a particular category.<br/>
+tolerate all taints of a particular category.
+Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15412,7 +15426,7 @@ There are three important differences between dataSource and dataSourceRef:
         <td>object</td>
         <td>
           resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources<br/>
@@ -15591,7 +15605,7 @@ Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGr
 
 
 resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -16288,8 +16302,7 @@ Deprecated: PhotonPersistentDisk is deprecated and the in-tree photonPersistentD
         <td>
           portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
 Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-is on.<br/>
+are redirected to the pxd.portworx.com CSI driver.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17359,7 +17372,7 @@ There are three important differences between dataSource and dataSourceRef:
         <td>object</td>
         <td>
           resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources<br/>
@@ -17538,7 +17551,7 @@ Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGr
 
 
 resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -18433,8 +18446,7 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 
 portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
 Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-is on.
+are redirected to the pxd.portworx.com CSI driver.
 
 <table>
     <thead>
@@ -19160,6 +19172,25 @@ seconds (1 hour).  This constraint is enforced by kube-apiserver.
 longer than 24 hours.<br/>
           <br/>
             <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>userAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          userAnnotations allow pod authors to pass additional information to
+the signer implementation.  Kubernetes does not restrict or validate this
+metadata in any way.
+
+These values are copied verbatim into the `spec.unverifiedUserAnnotations` field of
+the PodCertificateRequest objects that Kubelet creates.
+
+Entries are subject to the same validation as object metadata annotations,
+with the addition that all keys must be domain-prefixed. No restrictions
+are placed on values, except an overall size limitation on the entire field.
+
+Signers should document the keys and values they support. Signers should
+deny requests that contain keys they do not recognize.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20162,6 +20193,13 @@ for the workload.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>command</b></td>
+        <td>[]string</td>
+        <td>
+          Command overrides the container entrypoint (Pod.spec.containers[].command). When omitted, the image ENTRYPOINT is used.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>configVersions</b></td>
         <td>integer</td>
         <td>
@@ -20221,6 +20259,14 @@ This is only applicable to Deployment mode.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#opentelemetrycollectorspechostaliasesindex">hostAliases</a></b></td>
+        <td>[]object</td>
+        <td>
+          HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.
+This is only valid for non-hostNetwork pods and is not supported on Windows.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>hostNetwork</b></td>
         <td>boolean</td>
         <td>
@@ -20239,6 +20285,15 @@ This is only applicable to Deployment mode.<br/>
         <td>boolean</td>
         <td>
           HostUsers isolates pod processes in a separate user namespace, reducing the risk of privilege escalation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#opentelemetrycollectorspechttproute">httpRoute</a></b></td>
+        <td>object</td>
+        <td>
+          HttpRoute is used to specify how OpenTelemetry Collector is exposed via Gateway API HTTPRoute.
+This functionality is only available if one of the valid modes is set.
+Valid modes are: deployment, daemonset and statefulset.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20379,6 +20434,16 @@ for the generated workload. By default, a PDB with a MaxUnavailable of one is se
         <td>object</td>
         <td>
           PodDNSConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>podManagementPolicy</b></td>
+        <td>enum</td>
+        <td>
+          PodManagementPolicy defines the pod creation and termination order in StatefulSet.
+If not specified, it will default to "Parallel"<br/>
+          <br/>
+            <i>Enum</i>: OrderedReady, Parallel<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20845,7 +20910,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         <td><b><a href="#opentelemetrycollectorspecadditionalcontainersindexresizepolicyindex-1">resizePolicy</a></b></td>
         <td>[]object</td>
         <td>
-          Resources resize policy for the container.<br/>
+          Resources resize policy for the container.
+This field cannot be set on ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22994,7 +23060,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -25575,8 +25640,8 @@ For example, if autoscaling is configured with a memory consumption target of 10
 and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
 triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
 
-This is an alpha field and requires enabling the HPAConfigurableTolerance
-feature gate.<br/>
+This is an beta field and requires the HPAConfigurableTolerance feature
+gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -25695,8 +25760,8 @@ For example, if autoscaling is configured with a memory consumption target of 10
 and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
 triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
 
-This is an alpha field and requires enabling the HPAConfigurableTolerance
-feature gate.<br/>
+This is an beta field and requires the HPAConfigurableTolerance feature
+gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -26682,6 +26747,94 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
+### OpenTelemetryCollector.spec.hostAliases[index]
+<sup><sup>[↩ Parent](#opentelemetrycollectorspec-1)</sup></sup>
+
+
+
+HostAlias holds the mapping between IP and hostnames that will be injected as an entry in the
+pod's hosts file.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>ip</b></td>
+        <td>string</td>
+        <td>
+          IP address of the host file entry.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>hostnames</b></td>
+        <td>[]string</td>
+        <td>
+          Hostnames for the above IP address.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### OpenTelemetryCollector.spec.httpRoute
+<sup><sup>[↩ Parent](#opentelemetrycollectorspec-1)</sup></sup>
+
+
+
+HttpRoute is used to specify how OpenTelemetry Collector is exposed via Gateway API HTTPRoute.
+This functionality is only available if one of the valid modes is set.
+Valid modes are: deployment, daemonset and statefulset.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether the HTTP route configuration is enabled.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>gateway</b></td>
+        <td>string</td>
+        <td>
+          Gateway specifies the name of the Gateway resource to associate with the HTTP route.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>gatewayNamespace</b></td>
+        <td>string</td>
+        <td>
+          GatewayNamespace specifies the namespace of the Gateway resource.
+Default is the same namespace as the collector.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>hostnames</b></td>
+        <td>[]string</td>
+        <td>
+          Hostnames specifies the hostnames for the HTTP route.
+Multiple hostnames can be specified to match requests with any of the given hostnames.
+If empty, the route matches requests with any hostname.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### OpenTelemetryCollector.spec.ingress
 <sup><sup>[↩ Parent](#opentelemetrycollectorspec-1)</sup></sup>
 
@@ -26975,7 +27128,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         <td><b><a href="#opentelemetrycollectorspecinitcontainersindexresizepolicyindex-1">resizePolicy</a></b></td>
         <td>[]object</td>
         <td>
-          Resources resize policy for the container.<br/>
+          Resources resize policy for the container.
+This field cannot be set on ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -29124,7 +29278,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -31601,7 +31754,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -32056,6 +32208,15 @@ WARNING: The per-node strategy currently ignores targets without a Node, like co
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>allowInsecureAuthSecrets</b></td>
+        <td>boolean</td>
+        <td>
+          AllowInsecureAuthSecrets controls whether auth secret values (e.g. basicAuth passwords)
+are served over plain HTTP without requiring mTLS. Only enable this when the target allocator
+endpoint is secured by a service mesh or equivalent transport-level security.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>collectorNotReadyGracePeriod</b></td>
         <td>string</td>
         <td>
@@ -32109,6 +32270,13 @@ The default is relabel-config.<br/>
         <td>string</td>
         <td>
           Image indicates the container image to use for the OpenTelemetry TargetAllocator.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#opentelemetrycollectorspectargetallocatormtls">mtls</a></b></td>
+        <td>object</td>
+        <td>
+          Mtls defines the mTLS configuration for the target allocator. If enabled, the target allocator will communicate with the collector over mTLS.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -34166,6 +34334,43 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
+### OpenTelemetryCollector.spec.targetAllocator.mtls
+<sup><sup>[↩ Parent](#opentelemetrycollectorspectargetallocator-1)</sup></sup>
+
+
+
+Mtls defines the mTLS configuration for the target allocator. If enabled, the target allocator will communicate with the collector over mTLS.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Enabled indicates whether to enable mTLS between the target allocator and the collector.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>useCertManager</b></td>
+        <td>boolean</td>
+        <td>
+          UseCertManager defines whether cert-manager should be used to provision certificates for mTLS.
+Defaults to true.<br/>
+          <br/>
+            <i>Default</i>: true<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### OpenTelemetryCollector.spec.targetAllocator.observability
 <sup><sup>[↩ Parent](#opentelemetrycollectorspectargetallocator-1)</sup></sup>
 
@@ -34720,6 +34925,20 @@ All CR instances which the ServiceAccount has access to will be retrieved. This 
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>denyFSAccessThroughSMs</b></td>
+        <td>boolean</td>
+        <td>
+          DenyFSAccessThroughSMs causes the Target Allocator to drop ServiceMonitor and
+PodMonitor endpoints that reference arbitrary files on the file system. When
+enabled, endpoints with bearerTokenFile, tlsConfig.caFile, tlsConfig.certFile,
+or tlsConfig.keyFile are dropped from the produced scrape configuration while
+the remaining endpoints are kept. This prevents tenants from stealing the
+Collector's service account token via ServiceMonitor bearerTokenFile
+references. This is the equivalent of ArbitraryFSAccessThroughSMs.Deny from
+the Prometheus Operator.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>denyNamespaces</b></td>
         <td>[]string</td>
         <td>
@@ -34837,6 +35056,14 @@ Default: "30s"<br/>
         <td>
           ScrapeProtocols define the protocols to negotiate during a scrape. It tells clients the
 protocols supported by Prometheus in order of preference (from most to least preferred).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>secretNamespaces</b></td>
+        <td>[]string</td>
+        <td>
+          SecretNamespaces Namespaces to scope the watching of secrets for the Target Allocator.
+If not configured, defaults to the target allocator's own namespace.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35699,7 +35926,6 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
           procMount denotes the type of proc mount to use for the containers.
 The default value is Default which uses the container runtime defaults for
 readonly paths and masked paths.
-This requires the ProcMountType feature flag to be enabled.
 Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
@@ -36058,9 +36284,10 @@ If the key is empty, operator must be Exists; this combination means to match al
         <td>string</td>
         <td>
           Operator represents a key's relationship to the value.
-Valid operators are Exists and Equal. Defaults to Equal.
+Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
 Exists is equivalent to wildcard for value, so that a pod can
-tolerate all taints of a particular category.<br/>
+tolerate all taints of a particular category.
+Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36371,9 +36598,10 @@ If the key is empty, operator must be Exists; this combination means to match al
         <td>string</td>
         <td>
           Operator represents a key's relationship to the value.
-Valid operators are Exists and Equal. Defaults to Equal.
+Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
 Exists is equivalent to wildcard for value, so that a pod can
-tolerate all taints of a particular category.<br/>
+tolerate all taints of a particular category.
+Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36834,7 +37062,7 @@ There are three important differences between dataSource and dataSourceRef:
         <td>object</td>
         <td>
           resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources<br/>
@@ -37013,7 +37241,7 @@ Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGr
 
 
 resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -37710,8 +37938,7 @@ Deprecated: PhotonPersistentDisk is deprecated and the in-tree photonPersistentD
         <td>
           portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
 Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-is on.<br/>
+are redirected to the pxd.portworx.com CSI driver.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38781,7 +39008,7 @@ There are three important differences between dataSource and dataSourceRef:
         <td>object</td>
         <td>
           resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources<br/>
@@ -38960,7 +39187,7 @@ Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGr
 
 
 resources represents the minimum resources the volume should have.
-If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+Users are allowed to specify resource requirements
 that are lower than previous value but must still be higher than capacity recorded in the
 status field of the claim.
 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
@@ -39855,8 +40082,7 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 
 portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
 Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type
-are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate
-is on.
+are redirected to the pxd.portworx.com CSI driver.
 
 <table>
     <thead>
@@ -40582,6 +40808,25 @@ seconds (1 hour).  This constraint is enforced by kube-apiserver.
 longer than 24 hours.<br/>
           <br/>
             <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>userAnnotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          userAnnotations allow pod authors to pass additional information to
+the signer implementation.  Kubernetes does not restrict or validate this
+metadata in any way.
+
+These values are copied verbatim into the `spec.unverifiedUserAnnotations` field of
+the PodCertificateRequest objects that Kubelet creates.
+
+Entries are subject to the same validation as object metadata annotations,
+with the addition that all keys must be domain-prefixed. No restrictions
+are placed on values, except an overall size limitation on the entire field.
+
+Signers should document the keys and values they support. Signers should
+deny requests that contain keys they do not recognize.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -41368,10 +41613,26 @@ OpenTelemetryCollectorStatus defines the observed state of OpenTelemetryCollecto
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#opentelemetrycollectorstatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represents the latest available observations of the OpenTelemetryCollector's current state.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>image</b></td>
         <td>string</td>
         <td>
           Image indicates the container image to use for the OpenTelemetry Collector.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          ObservedGeneration is the most recent generation observed for this OpenTelemetryCollector. It corresponds to the OpenTelemetryCollector's generation, which is updated on mutation by the API Server.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -41386,6 +41647,83 @@ OpenTelemetryCollectorStatus defines the observed state of OpenTelemetryCollecto
         <td>string</td>
         <td>
           Version of the managed OpenTelemetry Collector (operand)<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### OpenTelemetryCollector.status.conditions[index]
+<sup><sup>[↩ Parent](#opentelemetrycollectorstatus-1)</sup></sup>
+
+
+
+Condition contains details for one aspect of the current state of this API Resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>enum</td>
+        <td>
+          status of the condition, one of True, False, Unknown.<br/>
+          <br/>
+            <i>Enum</i>: True, False, Unknown<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type of condition in CamelCase or in foo.example.com/CamelCase.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>

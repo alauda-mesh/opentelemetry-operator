@@ -6,9 +6,7 @@ metadata:
 spec:
   config:
     receivers:
-      prometheus:
-        config:
-          scrape_configs: []
+      prometheus: {}
     exporters:
       prometheus:
         endpoint: 0.0.0.0:9090
@@ -59,7 +57,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: check-metrics
-          image: docker.io/curlimages/curl:latest
+          image: mirror.gcr.io/alpine/curl:latest
           args:
             - /bin/sh
             - -c
