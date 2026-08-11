@@ -67,6 +67,15 @@ echo "=== 计划改写 $WORKFLOW_FILE ==="
 printf '  %-16s %s -> %s\n' "bundle_version"  "$OLD_BUNDLE"    "$NEW_BUNDLE"
 printf '  %-16s %s -> %s   (%s)\n' "collector_tag" "$OLD_COLLECTOR" "$NEW_COLLECTOR" "$COLLECTOR_NOTE"
 
+# release_version 是产品版本线，由人决定升不升、升到哪，脚本不碰；
+# 但必须显示出来，否则步骤 6 触发时才发现它过期就晚了。
+OLD_RELEASE="$(workflow_input_default release_version)"
+printf '  %-16s %s   (不自动改，见下)\n' "release_version" "${OLD_RELEASE:-<解析失败>}"
+echo
+echo "  注意: release_version 当前是 ${OLD_RELEASE:-?}，脚本不会自动改它。"
+echo "        步骤 6 触发时如果用户选了别的版本线（如 2.1.0-rc.1），"
+echo "        要回过头把这里的默认值一并改掉，否则下次同步会沿着旧版本线算错。"
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo
   echo "DRY_RUN_OK（未修改任何文件）"

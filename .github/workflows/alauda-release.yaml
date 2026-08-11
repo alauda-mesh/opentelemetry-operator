@@ -7,7 +7,7 @@ on:
       release_version:
         description: "Release version"
         required: true
-        default: "2.0.0"
+        default: "2.1.0"
       bundle_channels:
         description: "Bundle channels"
         required: true

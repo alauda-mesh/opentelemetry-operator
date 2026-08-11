@@ -281,8 +281,14 @@ bash "$SKILL_DIR/scripts/trigger-release.sh" --dry-run
 **`release_version` 是产品版本线，脚本只会沿着历史往下顺延，猜不出用户的发版意图**
 （实测：脚本算出 `2.0.0-rc.11`，用户实际要的是 `2.1.0-rc.1`——大版本升级配大版本号，这是人的决定）。
 所以确认环节要把它当成一个**真正的问题**问出来，而不是让用户对一串参数点"确认"。
-`update-defaults.sh` 也不会改 workflow 里 `release_version` 的默认值，
-用户若换了版本线，记得在最终汇报里提醒他这个默认值已经过期、下次会算错。
+
+`update-defaults.sh` 不会改 workflow 里 `release_version` 的默认值（只会打印出来提醒）。
+**用户一旦选了新版本线，触发完就要回头把默认值一起改掉并提交**，否则下次同步还会沿着旧版本线算：
+
+```bash
+# 例：用户选了 2.1.0-rc.1，就把默认值从 2.0.0 改成 2.1.0
+git add .github/workflows/alauda-release.yaml && git commit -m "chore: bump release_version default to 2.1.0"
+```
 
 顺带核对一下 `collector_tag` 与目标版本的关系：ACP collector 有自己的发版节奏，
 可能领先或落后 operator（本次 operator 0.156.0 配 collector 0.158.0-r0，因为 collector 仓库没有 0.156.x）。
@@ -296,12 +302,17 @@ bash "$SKILL_DIR/scripts/trigger-release.sh"
 # 需要覆盖某个参数时：trigger-release.sh --release-version 2.1.0-rc.1 --bundle-version 0.156.0-rc.0
 ```
 
-然后监控。self-hosted runner 上的双平台镜像构建通常 10~40 分钟，
-**必须用后台方式运行**（`run_in_background: true`），完成后会收到通知：
+然后监控。self-hosted runner 上的双平台镜像构建通常 10~40 分钟（v0.156.0 那次实测只用了 6 分钟，
+runner 空闲时会快很多），**必须用后台方式运行**（`run_in_background: true`），完成后会收到通知：
 
 ```bash
 bash "$SKILL_DIR/scripts/watch-release.sh"
 ```
+
+**流水线运行期间往升级分支 push 是安全的**，不必干等：`workflow_dispatch` 在触发时就把 ref
+解析成了固定 SHA，`actions/checkout` 默认取的正是这个 `github.sha`，后续提交不会被卷进正在跑的 run。
+拿不准时核对一下 `gh run view <run-id> --json headSha` 与触发时的 HEAD 是否一致即可。
+所以监控期间可以顺手做别的收尾工作（补文档、整理汇报），别浪费这段时间。
 
 按退出结果处理：
 
