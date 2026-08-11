@@ -62,8 +62,8 @@ skill 不会自行 merge PR，也不会 publish 触发流水线产生的 draft r
 升级 PR 合并之后正式发版：
 
 1. 执行 GitHub Action 的 `Alauda Release workflow` 流水线
-   1. 选择 release 分支，如 `release-2.0`
-   2. 填写 `Release version`，如 `2.0.0`（后续生成 github tag）
+   1. 选择 release 分支，如 `release-2.1`
+   2. 填写 `Release version`，如 `2.1.0-r0`（后续生成 github tag）
    3. 填写 `Bundle and Operator version`，如 `0.156.0-r0`
    4. 填写 `Collector tag`，如 `0.158.0-r0`
    5. `Draft release` 保持勾选，`Pre-release` 按需选择
