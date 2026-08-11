@@ -171,9 +171,10 @@ bash "$SKILL_DIR/scripts/trigger-release.sh"
 # 需要覆盖时：trigger-release.sh --bundle-version 0.156.0-rc.3 --release-version 2.1.0-rc.3
 ```
 
-然后监控。self-hosted runner 上的双平台构建通常 10~40 分钟，**必须后台运行**（`run_in_background: true`），
-完成后会收到通知。好消息是**失败暴露得很快**：`make generate` / 编译类问题 1~2 分钟内就返回
-（实测一次 59s 就挂在 `make generate`），所以短时间内返回八成是失败而不是构建飞快：
+然后监控。self-hosted runner 上的双平台构建 10~40 分钟不等（缓存热时实测只要 4 分钟），
+**必须后台运行**（`run_in_background: true`），完成后会收到通知。
+注意**失败也暴露得很快**：`make generate` / 编译类问题 1~2 分钟内就返回（实测一次 59s 就挂在
+`make generate`），所以几分钟就返回既可能是成功也可能是失败，别凭时长下判断，看 `PIPELINE_*` 结果：
 
 ```bash
 bash "$SKILL_DIR/scripts/watch-release.sh"
@@ -194,7 +195,10 @@ bash "$SKILL_DIR/scripts/watch-release.sh"
   （依赖升级编译错、go-version 写错或 runner 下载不到）还是环境问题（runner 离线、harbor 登录、
   yq 版本、基础镜像拉取）。属于本次修复引入的**最多尝试修复 2 次**：追加 commit → `create-pr.sh` push →
   重新 `trigger-release.sh` → 后台 `watch-release.sh`。两次仍失败、或原因是环境问题、或方案拿不准，
-  就停下来把分析交给用户，不要继续盲改；
+  就停下来把分析交给用户，不要继续盲改。
+  失败在 Build 步骤时 `Create GitHub release` 是 skipped，**不会留下 draft release**，无需清理
+  （可用 `gh run view <ID> --json jobs --jq '.jobs[].steps[]|select(.name|test("release";"i"))'` 确认）；
+  但失败 run 的标题已占用那个 rc 序号，重试时 `--dry-run` 会自动跳到下一个，属正常；
 - **PIPELINE_TIMEOUT（3）**：告知用户流水线仍在跑并附 run 链接，稍后可重跑本脚本继续等。
 
 ## 步骤 5：回归扫描与迭代
