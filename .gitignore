@@ -38,6 +38,7 @@ config/manager/kustomization.yaml
 # test resources
 kubeconfig
 tests/_build/
+tests/test-e2e-apps/java/.gradle/
 config/rbac/extra-permissions-operator/
 config/rbac/certmanager-permissions/
 .testresults

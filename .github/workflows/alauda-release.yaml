@@ -54,10 +54,12 @@ permissions:
 jobs:
   release:
     runs-on: [self-hosted, linux, x64]
+    outputs:
+      images: ${{ steps.output_images.outputs.images }}
 
     steps:
       - name: Install GH CLI
-        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+        uses: sersoft-gmbh/setup-gh-cli-action@v3.0.0
 
       - name: Login to build-harbor.alauda.cn
         uses: docker/login-action@v4
@@ -71,12 +73,12 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
-          go-version: "~1.26.1"
+          go-version: "1.26.5"
           cache: false
 
       - name: Build the operator binary for each supported architecture
@@ -90,6 +92,7 @@ jobs:
           done
 
       - name: Build and push operator image
+        id: build_operator_image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -97,6 +100,10 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}:${{ env.OPERATOR_VERSION }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.ref.name=${{ github.ref }}
 
       - name: Generate bundle metadata
         run: |
@@ -116,7 +123,22 @@ jobs:
             -e ALAUDA_OPERATOR2_TAG=$OPERATOR_VERSION \
             -e ALAUDA_COLLECTOR_TAG=$COLLECTOR_TAG
 
+      - name: Add provenance labels to bundle image
+        env:
+          BUNDLE_DOCKERFILE: bundle/community/bundle.Dockerfile
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+          SOURCE_REVISION: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          {
+            printf '\n'
+            printf 'LABEL org.opencontainers.image.source="%s"\n' "$SOURCE"
+            printf 'LABEL org.opencontainers.image.revision="%s"\n' "$SOURCE_REVISION"
+            printf 'LABEL org.opencontainers.image.ref.name="%s"\n' "$SOURCE_REF"
+          } >> "$BUNDLE_DOCKERFILE"
+
       - name: Build and push bundle image
+        id: build_bundle_image
         continue-on-error: true
         run: |
           make bundle-build \
@@ -128,6 +150,29 @@ jobs:
             -e VERSION=$BUNDLE_VERSION \
             -e IMG_PREFIX=$IMG_PREFIX \
             -e IMG_REPO=$IMG_REPO
+
+      - name: "Output images: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}:${{ env.OPERATOR_VERSION }}${{ steps.build_bundle_image.outcome == 'success' && format(',{0}/{1}-bundle:{2}', env.IMG_PREFIX, env.IMG_REPO, env.BUNDLE_VERSION) || '' }}"
+        id: output_images
+        if: ${{ !cancelled() && steps.build_operator_image.outcome == 'success' }}
+        shell: bash
+        env:
+          OPERATOR_IMAGE: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}:${{ env.OPERATOR_VERSION }}
+          BUNDLE_IMAGE: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}-bundle:${{ env.BUNDLE_VERSION }}
+          BUNDLE_BUILD_OUTCOME: ${{ steps.build_bundle_image.outcome }}
+        run: |
+          images=("$OPERATOR_IMAGE")
+          if [[ "$BUNDLE_BUILD_OUTCOME" == "success" ]]; then
+            images+=("$BUNDLE_IMAGE")
+          fi
+
+          image_list=$(IFS=,; printf '%s' "${images[*]}")
+          echo "BUILD_IMAGES=${image_list}"
+          echo "images=${image_list}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Build images"
+            echo
+            printf -- '- `%s`\n' "${images[@]}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create GitHub release
         run: |
