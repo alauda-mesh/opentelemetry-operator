@@ -54,6 +54,8 @@ permissions:
 jobs:
   release:
     runs-on: [self-hosted, linux, x64]
+    outputs:
+      images: ${{ steps.output_images.outputs.images }}
 
     steps:
       - name: Install GH CLI
@@ -90,6 +92,7 @@ jobs:
           done
 
       - name: Build and push operator image
+        id: build_operator_image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -117,6 +120,7 @@ jobs:
             -e ALAUDA_COLLECTOR_TAG=$COLLECTOR_TAG
 
       - name: Build and push bundle image
+        id: build_bundle_image
         continue-on-error: true
         run: |
           make bundle-build \
@@ -128,6 +132,29 @@ jobs:
             -e VERSION=$BUNDLE_VERSION \
             -e IMG_PREFIX=$IMG_PREFIX \
             -e IMG_REPO=$IMG_REPO
+
+      - name: "Output images: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}:${{ env.OPERATOR_VERSION }}${{ steps.build_bundle_image.outcome == 'success' && format(',{0}/{1}-bundle:{2}', env.IMG_PREFIX, env.IMG_REPO, env.BUNDLE_VERSION) || '' }}"
+        id: output_images
+        if: ${{ !cancelled() && steps.build_operator_image.outcome == 'success' }}
+        shell: bash
+        env:
+          OPERATOR_IMAGE: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}:${{ env.OPERATOR_VERSION }}
+          BUNDLE_IMAGE: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}-bundle:${{ env.BUNDLE_VERSION }}
+          BUNDLE_BUILD_OUTCOME: ${{ steps.build_bundle_image.outcome }}
+        run: |
+          images=("$OPERATOR_IMAGE")
+          if [[ "$BUNDLE_BUILD_OUTCOME" == "success" ]]; then
+            images+=("$BUNDLE_IMAGE")
+          fi
+
+          image_list=$(IFS=,; printf '%s' "${images[*]}")
+          echo "BUILD_IMAGES=${image_list}"
+          echo "images=${image_list}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Build images"
+            echo
+            printf -- '- `%s`\n' "${images[@]}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create GitHub release
         run: |
