@@ -37,9 +37,19 @@ disable-model-invocation: true
   **唯一**钉成精确版本的地方，镜像里的 `manager` 就是它编出来的，所以修 stdlib 漏洞就是升这一处。
   其他社区 workflow 用的是 `~1.26.5`（自动取该 minor 最新 patch），与发布镜像无关，**不要顺手改**。
   升级策略：优先当前 minor 内的 patch；patch 满足不了才跨 minor，跨了要在 PR 与最终报告里**着重强调**。
-- **两个 go module**：根 `go.mod` 与 `apis/go.mod`（被根模块 `replace` 到本地）。镜像里的依赖版本由
-  根模块 MVS 决定（取两边要求的最大值），所以**修镜像只需改根 `go.mod`**；`apis/` 里的低版本
-  只影响独立发布的 apis 模块，脚本会提示，是否顺带对齐由你判断。
+- **仓库有 4 个 go module**，升依赖前必须清楚它们的关系（2026-08 首次实跑就栽在这里）：
+
+  | module | 与根模块的关系 | 依赖升级时 |
+  | --- | --- | --- |
+  | 根 `go.mod` | — | **要改**，镜像里的依赖版本由它的 MVS 决定 |
+  | `apis/go.mod` | 被根模块 `replace` 到本地 | 不影响镜像；但它是独立发布的 module，建议顺带对齐（实测一行 diff、零风险） |
+  | `cmd/otel-allocator/integrationtest/go.mod` | **`replace` 指回根模块和 `apis`** | **必须跟着 `go mod tidy`** |
+  | `tests/test-e2e-apps/bridge-server/go.mod` | 完全独立，不引用根模块 | 不用动 |
+
+  漏掉 `integrationtest` 的后果很硬：`make generate` 里的 controller-gen 以 `paths=./...` 加载包时
+  会走进这个嵌套模块，报 `Error: load packages in root ".../integrationtest": go: updates to go.mod needed`，
+  于是**流水线的「Build the operator binary」在开编之前就挂**，PR 的 `Unit tests`（`make ci`）也一起红。
+  `gomod-bump.sh` 现在会自动 tidy「replace 了根模块」的嵌套模块，但你得认识这个报错才看得懂现场。
 - 扫出来的漏洞库多半是 **indirect** 依赖。`go get` 会在 `go.mod` 写下显式 require 行，`go mod tidy`
   会保留它（标 `// indirect`）——这是强制抬升 indirect 依赖的标准做法，不要因为它是 indirect 就跳过。
 - **流水线是 `workflow_dispatch` 触发的，PR 不会触发任何镜像构建**，所以建完 PR 必须显式触发一次
@@ -63,8 +73,15 @@ bash "$SKILL_DIR/scripts/scan-images.sh"                    # Bash timeout 设 6
 扫描服务优先用 `192.168.141.42:8888`，不可达时自动切备用 `192.168.25.100:8888`（备用地址常故障）。
 扫描返回的 JSON 里 `Description` 字段极长，脚本已只输出紧凑行，**不要去 cat 原始 JSON**。
 
-`resolve-input.sh` 若警告 run 所在分支与修复基线不一致，说明被扫的镜像和将要修的源码不是同一份，
-先确认那条分支是否已合进基线；没合就停下来问用户该以哪个分支为基线，别硬着头皮往下修。
+`resolve-input.sh` 若警告 run 所在分支与修复基线不一致，说明被扫的镜像和将要修的源码可能不是同一份。
+**先自己查一下那条分支是否已合进基线**（feature 分支构建完就合进 main 是常态，不必上来就打断用户）：
+
+```bash
+git fetch origin main -q
+git branch -a --contains "$(gh run view <RUN_ID> --repo alauda-mesh/opentelemetry-operator --json headSha --jq .headSha)"
+```
+
+输出里含基线分支（如 `main`）即已合入，说明源码一致，直接继续；**没合入才停下来**问用户该以哪条分支为基线。
 
 **无论有没有漏洞，都先给用户一份扫描摘要**（镜像、每条漏洞的分类/包/CVE/严重度/当前版本→修复版本、
 SUMMARY 分类计数、修复目标表）。然后按 `RESULT:` 分支：
@@ -96,8 +113,11 @@ bash "$SKILL_DIR/scripts/gomod-bump.sh" <module@vX.Y.Z> [...]   # 建议 run_in_
 ```
 
 本轮只改了 go-version、没动 go.mod 时，用 `gomod-bump.sh --build-only` 单做构建验证。
+脚本会自动 tidy「replace 了根模块」的嵌套模块，然后跑**两步**验证：`go build ./...`
+再加 `make generate`——后者是流水线编译前的必经步骤，也是唯一能提前暴露跨模块失配的本地手段，
+**只看 `go build` 通过就提交 = 假的绿灯**。
 构建验证实测：热 build cache 约 30 秒，**冷缓存（或依赖大面积升级后）约 7.5 分钟**——
-后者后台跑起来之后就去写 PR 正文，别干等。
+后者后台跑起来之后就去写 PR 正文、顺手把 `trigger-release.sh --dry-run` 也跑掉，别干等。
 
 修复注意事项：
 
@@ -110,6 +130,9 @@ bash "$SKILL_DIR/scripts/gomod-bump.sh" <module@vX.Y.Z> [...]   # 建议 run_in_
 - 无修复版本的 CVE 升级修不了，记入最终汇报的「未修复项」；
 - tidy 后**审查连带升级面**：`git diff go.mod` 看基础库（k8s.io、controller-runtime、collector 系列等）
   是否被大幅拉升，异常拉升要评估影响或回钉；
+- 手工 `cd` 进子模块（如对齐 `apis/`）时注意 **Bash 工作目录会跨调用保留**：下一条命令仍在子目录里，
+  `git diff -- apis/` 会报 ambiguous argument，更坑的是 `go build ./...` 验的其实是子模块，
+  得出**假的"根模块构建通过"**。每条命令显式 `cd` 回仓库根，或用 `( cd apis && ... )` 子 shell；
 - 构建失败时先分析原因（版本冲突、新版本要求更高 go、API 变更），能明确解决就解决，
   拿不准就带着报错向用户提问，不要凭猜测做大版本连锁升级。
 
@@ -149,7 +172,8 @@ bash "$SKILL_DIR/scripts/trigger-release.sh"
 ```
 
 然后监控。self-hosted runner 上的双平台构建通常 10~40 分钟，**必须后台运行**（`run_in_background: true`），
-完成后会收到通知：
+完成后会收到通知。好消息是**失败暴露得很快**：`make generate` / 编译类问题 1~2 分钟内就返回
+（实测一次 59s 就挂在 `make generate`），所以短时间内返回八成是失败而不是构建飞快：
 
 ```bash
 bash "$SKILL_DIR/scripts/watch-release.sh"
@@ -161,7 +185,11 @@ bash "$SKILL_DIR/scripts/watch-release.sh"
 按退出结果处理：
 
 - **PIPELINE_SUCCESS（0）**：ROUND 已 +1、新镜像清单已生成，进入步骤 5。输出里列出的 PR check 失败项要分析：
-  与本次修复相关（依赖升级把 lint/test/e2e 弄挂）就修；fork 上的固有失败如实记入最终报告即可；
+  与本次修复相关（依赖升级把 lint/test/e2e 弄挂）就修；fork 上的固有失败如实记入最终报告即可。
+  **归因别靠猜，用两组对照**：`gh pr checks <上一个 PR 号>` 看同名 check 在别人的 PR 上是不是也红（红=fork 固有），
+  以及 `gh run list --branch main --limit 15` 看 main 上的 CI 本来就什么状态。
+  实测参考：`Check for Tag Pinned Actions` 在本 fork 恒红；`Govulncheck` 在修复前的 main 上是红的
+  （红的正是这批 CVE），修完转绿，可当作修复生效的旁证；
 - **PIPELINE_FAILED（2）**：脚本已附失败概览与日志摘要。**分析失败原因**：是本次修复引入的
   （依赖升级编译错、go-version 写错或 runner 下载不到）还是环境问题（runner 离线、harbor 登录、
   yq 版本、基础镜像拉取）。属于本次修复引入的**最多尝试修复 2 次**：追加 commit → `create-pr.sh` push →
