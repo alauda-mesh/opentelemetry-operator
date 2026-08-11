@@ -100,6 +100,10 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           push: true
           tags: ${{ env.IMG_PREFIX }}/${{ env.IMG_REPO }}:${{ env.OPERATOR_VERSION }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.ref.name=${{ github.ref }}
 
       - name: Generate bundle metadata
         run: |
@@ -118,6 +122,20 @@ jobs:
           make alauda-patch \
             -e ALAUDA_OPERATOR2_TAG=$OPERATOR_VERSION \
             -e ALAUDA_COLLECTOR_TAG=$COLLECTOR_TAG
+
+      - name: Add provenance labels to bundle image
+        env:
+          BUNDLE_DOCKERFILE: bundle/community/bundle.Dockerfile
+          SOURCE: ${{ github.server_url }}/${{ github.repository }}
+          SOURCE_REVISION: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          {
+            printf '\n'
+            printf 'LABEL org.opencontainers.image.source="%s"\n' "$SOURCE"
+            printf 'LABEL org.opencontainers.image.revision="%s"\n' "$SOURCE_REVISION"
+            printf 'LABEL org.opencontainers.image.ref.name="%s"\n' "$SOURCE_REF"
+          } >> "$BUNDLE_DOCKERFILE"
 
       - name: Build and push bundle image
         id: build_bundle_image
