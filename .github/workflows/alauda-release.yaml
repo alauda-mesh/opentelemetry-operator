@@ -16,7 +16,7 @@ on:
       bundle_version:
         description: "Bundle and Operator version"
         required: true
-        default: "0.156.0-r0"
+        default: "0.157.0-r0"
       collector_tag:
         description: "OpenTelemetry Collector tag"
         required: true
