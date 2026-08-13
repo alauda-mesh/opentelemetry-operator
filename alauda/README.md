@@ -30,8 +30,8 @@ ACP 的 OLM bundle 走 **community** 变体：流水线先 `make bundle -e BUNDL
 再由 `make alauda-patch`（`hack/alauda-patch.sh`）把 `alauda/alauda-csv.yaml` 合并进去。合并语义：
 
 - `spec.install.spec.deployments` **以外**的部分是 yq 深合并（`. *=`），写进 `alauda-csv.yaml` 即生效；
-- `deployments` 里**只追加环境变量**（`.env += ...`），所以跟进 `volumeMounts` / `volumes` / `args`
-  这类内容时，还需要同步修改 `hack/alauda-patch.sh`。
+- `deployments` 里会追加环境变量（`.env += ...`），并深度合并 `manager.resources`（保留上游已有配置）；
+  跟进 `volumeMounts` / `volumes` / `args` 这类其他内容时，还需要同步修改 `hack/alauda-patch.sh`。
 
 upstream 的 openshift 变体不会进入 ACP 产物，其内容是否跟进由步骤 4 逐条评估。
 

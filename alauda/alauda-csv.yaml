@@ -46,6 +46,10 @@ spec:
                   value: 'true'
                 - name: RELATED_IMAGE_COLLECTOR
                   value: "build-harbor.alauda.cn/asm/opentelemetry-collector:OPENTELEMETRY-COLLECTOR-TAG-PLACEHOLDER"
+                resources:
+                  limits:
+                    cpu: "1"
+                    memory: 1Gi
   provider:
     name: Alauda
   relatedImages:
