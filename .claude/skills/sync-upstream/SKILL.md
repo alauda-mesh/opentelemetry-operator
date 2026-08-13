@@ -63,6 +63,26 @@ git fetch upstream --tags --quiet 2>/dev/null; git tag --sort=-v:refname | grep 
     patch 就什么都不做，退出码依然是 0，bundle 里悄悄少了全部 ACP 配置。
 - 流水线 `.github/workflows/alauda-release.yaml` 是 **`workflow_dispatch` 触发**的，
   PR 本身不会触发任何构建，所以建完 PR 还要单独触发一次做构建验证。
+- **改动任何 workflow 时，新增的 `uses:` 必须锁定到 40 位 commit SHA**（写法：`owner/action@<sha> # vX.Y.Z`）。
+  上游继承来的 `.github/workflows/ensure-sha-pinned-actions.yml` 会在每个 PR 上扫全部 workflow 文件，
+  用 tag 引用（`@v4`）就报 `is not pinned to a full length commit SHA` 并 fail，
+  且**它只报第一个错**（action 自身的设计），修完第一个还会冒出下一个，所以要一次性全查：
+
+  ```bash
+  grep -rnE '^\s*(-\s*)?uses:' .github/workflows/ | grep -vE 'uses:\s*\./' | grep -vE '@[0-9a-f]{40}'
+  ```
+
+  取 SHA 用 `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`（会自动解引用 annotated tag）。
+  同名 action 优先**沿用上游在本仓库其他 workflow 里已用的锁定值**，既省事又不引入版本漂移：
+
+  ```bash
+  grep -rhoE 'uses: docker/login-action@[0-9a-f]{40}.*' .github/workflows/ | sort -u
+  ```
+
+  历史教训：`alauda-release.yaml` 自加入起 6 个 action 全是 tag 引用，导致该检查在 fork 的 PR 上
+  **连续失败了 9 次**（横跨 v0.156.0 升级、CVE 修复、resources.limits 三个 PR）都没人处理。
+  `main` 没开分支保护，它不挡合并，所以很容易被当成"历史噪音"忽略——**看到它红，先确认是不是自己新加的 `uses:`**。
+  已于 v0.157.0 升级期间修复（commit `71a4267e`）。
 - 触发时用 `-rc.<n>` 后缀 + `is_draft_release=true`：产物是 draft release，不会污染正式版本；
   `--draft` 的 release 在 publish 之前不会真的创建 git tag。
 - 各脚本的中间产物（merge 日志、构建日志、CSV diff、步骤间状态）都放在 `.git/otel-op-sync/` 下，
