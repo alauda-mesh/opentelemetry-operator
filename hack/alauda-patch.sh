@@ -38,6 +38,13 @@ yq -i '
   )
 ' "${CSV_FILE}"
 
+# 1.3 深度合并 manager 的资源配置，保留上游已有的 requests
+yq -i '
+  with(.spec.install.spec.deployments[] | select(.name == "opentelemetry-operator-controller-manager").spec.template.spec.containers[] | select(.name == "manager");
+    .resources *= (load("'"${PATCH_FILE}"'").spec.install.spec.deployments[] | select(.name == "opentelemetry-operator-controller-manager").spec.template.spec.containers[] | select(.name == "manager").resources)
+  )
+' "${CSV_FILE}"
+
 # 2. 替换 CSV 中的 TAG 占位符
 # 使用 sed -i.bak 以兼容 macOS 和 Linux，随后删除备份文件
 sed -i.bak "s|OPENTELEMETRY-OPERATOR2-TAG-PLACEHOLDER|${OPERATOR2_TAG}|g" "${CSV_FILE}"
