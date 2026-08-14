@@ -33,16 +33,17 @@ import (
 	"github.com/open-telemetry/opentelemetry-operator/apis/v1alpha1"
 	"github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/open-telemetry/opentelemetry-operator/cmd/operator-opamp-bridge/internal/logger"
+	"github.com/open-telemetry/opentelemetry-operator/internal/version"
 )
 
 const (
-	agentType      = "io.opentelemetry.operator-opamp-bridge"
-	operatorMode   = "operator"
-	standaloneMode = "standalone"
+	agentType          = "io.opentelemetry.operator-opamp-bridge"
+	bridgeAttributeKey = "opentelemetry.io/opamp.bridge.mode"
+	operatorMode       = "operator"
+	standaloneMode     = "standalone"
 )
 
 var (
-	agentVersion  = os.Getenv("OPAMP_VERSION")
 	hostname, _   = os.Hostname()
 	schemeBuilder = k8sruntime.NewSchemeBuilder(registerKnownTypes)
 )
@@ -213,7 +214,7 @@ func (c *Config) GetAgentType() string {
 }
 
 func (*Config) GetAgentVersion() string {
-	return agentVersion
+	return version.OperatorOpAMPBridge()
 }
 
 func (c *Config) GetInstanceId() uuid.UUID {
@@ -230,6 +231,8 @@ func (c *Config) GetDescription() *protobufs.AgentDescription {
 		NonIdentifyingAttributes: c.AgentDescription.nonIdentifyingAttributes(map[string]string{
 			"os.family": runtime.GOOS,
 			"host.name": hostname,
+		}, map[string]string{
+			bridgeAttributeKey: c.Mode,
 		}),
 	}
 }
@@ -358,10 +361,11 @@ func supportedStandaloneWorkloadKind(workloadKind string) bool {
 }
 
 // nonIdentifyingAttributes overlays configured non-identifying attributes on top of defaults for OpAMP reporting.
-func (ad *AgentDescription) nonIdentifyingAttributes(defaults map[string]string) []*protobufs.KeyValue {
+func (ad *AgentDescription) nonIdentifyingAttributes(defaults, forced map[string]string) []*protobufs.KeyValue {
 	attrs := map[string]string{}
 	maps.Copy(attrs, defaults)
 	maps.Copy(attrs, ad.NonIdentifyingAttributes)
+	maps.Copy(attrs, forced)
 
 	toReturn := make([]*protobufs.KeyValue, len(attrs))
 	i := 0

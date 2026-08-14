@@ -23,33 +23,66 @@ git fetch upstream --tags --quiet 2>/dev/null; git tag --sort=-v:refname | grep 
 
 ## 背景知识
 
-- 本仓库是 `open-telemetry/opentelemetry-operator` 的 fork，**ACP 的定制面极小**——只有 9 个**路径**与上游不同：
+- 本仓库是 `open-telemetry/opentelemetry-operator` 的 fork，**ACP 的定制面极小**——只有 9 个固定**路径**与上游不同：
   `.claude/`（整个目录，含本 skill）、`.github/workflows/alauda-release.yaml`、`.gitignore`、`Dockerfile.alauda`、
   `Makefile`（只在首行加了 `-include Makefile.alauda.mk`）、`Makefile.alauda.mk`、`alauda/README.md`、
   `alauda/alauda-csv.yaml`、`hack/alauda-patch.sh`。
-  其中真正与上游共享、可能产生合并冲突的只有 `Makefile` 和 `.gitignore`，而且都属于"两边都要"。
   这意味着升级本身通常很顺，**真正需要动脑的是 bundle CSV 的跟进（步骤 4）**。
-  合并后可以这样核对定制面没被冲掉（注意 `.claude/` 会展开成十几个文件，所以行数远多于 9，别被吓到）：
+
+  但**定制面不止这 9 个**：`fix-image-vulns` skill 修 CVE 时会 bump `go.mod`/`go.sum`（含 `apis/`、
+  `cmd/otel-allocator/integrationtest/` 子模块），这些改动同样是 ACP 定制，而且**恰恰是最容易冲突的**
+  （上游每个 release 都在动依赖）。所以合并冲突的真实来源有两类：`Makefile`/`.gitignore`（"两边都要"）
+  和 go 模块文件（比版本号高低，见步骤 1）。合并后这样核对定制面没被冲掉
+  （注意 `.claude/` 会展开成十几个文件，所以行数远多于 9，别被吓到）：
 
   ```bash
   git diff --name-only <上游tag> HEAD | grep -v '^\.claude/'
   ```
 
-  预期输出恰好是上面除 `.claude/` 外的 8 个路径。多出别的文件就说明定制面变了，停下来问用户。
+  预期输出 = 上面除 `.claude/` 外的 8 个路径，**外加尚未被上游追平的 go 模块文件**。
+  实测 v0.157.0 那次多出 `apis/go.mod`、`apis/go.sum`（上游的 `golang.org/x/text` 还停在 v0.37.0，
+  低于 ACP 的 CVE 修复版本 v0.39.0，所以定制得留着）。
+  多出**这两类以外**的文件才说明定制面变了，停下来问用户。
 - ACP 的 OLM bundle 走 **community** 变体：流水线执行 `make bundle -e BUNDLE_VARIANT=community`，
   再用 `make alauda-patch` 把 `alauda/alauda-csv.yaml` 合并进
   `bundle/community/manifests/opentelemetry-operator.clusterserviceversion.yaml`。
   **openshift 变体的内容不会自动进入 ACP 产物**，所以每次升级都要看一眼 openshift 那边多做了什么、值不值得跟进。
-- `hack/alauda-patch.sh` 的合并语义决定了跟进成本，判断时必须清楚：
+- `hack/alauda-patch.sh` 的合并语义决定了跟进成本，判断时必须清楚（**别凭记忆，每次读一遍脚本**——
+  它是会长的，`resources` 那条就是后加的）：
   - `spec.install.spec.deployments` **以外**的部分用 yq 的 `. *=` 深合并 —— 想加什么直接写进 `alauda/alauda-csv.yaml` 即可；
-  - `deployments` 里**只做 `.env += ...`（追加环境变量）** —— 所以跟进 env 是零成本的；
+  - `deployments` 里目前只处理两样：`.env += ...`（追加环境变量）和 `.resources *= ...`（深合并资源配置，
+    保留上游已有的 requests）—— 这两类跟进是零成本的；
     而 `volumeMounts` / `volumes` / `args` / 探针这类改动，光改 `alauda/alauda-csv.yaml` 不会生效，
     还得改 `hack/alauda-patch.sh` 增加对应的 yq 逻辑。**评估建议时要把这条成本说清楚。**
-- **`.env +=` 是纯追加，上游删掉/改名某个 env 时它不会报错，只会静默失效**——CSV 里照样有这个 env，
-  但 operator 根本不读它，流水线和 e2e 都发现不了。这是整个升级里最隐蔽的风险，
-  所以步骤 4 开头有一项强制核对（见下）。
+- **patch 有两种静默失效，都不会让 `make alauda-patch` 报错**，是整个升级里最隐蔽的风险，
+  所以步骤 4 开头有两项强制核对（见下）：
+  - `.env +=` 是纯追加，上游删掉/改名某个 env 时 CSV 里照样有这个 env，但 operator 根本不读它；
+  - 两条 deployments 规则都靠 `with(... select(.name == "opentelemetry-operator-controller-manager")
+    ... select(.name == "manager"); ...)` 定位，**yq 的 `with` 选不中目标时是静默 no-op**。
+    上游一旦改了 deployment 名或容器名（例如把 webhook 拆成独立 Deployment 时顺手重命名 manager），
+    patch 就什么都不做，退出码依然是 0，bundle 里悄悄少了全部 ACP 配置。
 - 流水线 `.github/workflows/alauda-release.yaml` 是 **`workflow_dispatch` 触发**的，
   PR 本身不会触发任何构建，所以建完 PR 还要单独触发一次做构建验证。
+- **改动任何 workflow 时，新增的 `uses:` 必须锁定到 40 位 commit SHA**（写法：`owner/action@<sha> # vX.Y.Z`）。
+  上游继承来的 `.github/workflows/ensure-sha-pinned-actions.yml` 会在每个 PR 上扫全部 workflow 文件，
+  用 tag 引用（`@v4`）就报 `is not pinned to a full length commit SHA` 并 fail，
+  且**它只报第一个错**（action 自身的设计），修完第一个还会冒出下一个，所以要一次性全查：
+
+  ```bash
+  grep -rnE '^\s*(-\s*)?uses:' .github/workflows/ | grep -vE 'uses:\s*\./' | grep -vE '@[0-9a-f]{40}'
+  ```
+
+  取 SHA 用 `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`（会自动解引用 annotated tag）。
+  同名 action 优先**沿用上游在本仓库其他 workflow 里已用的锁定值**，既省事又不引入版本漂移：
+
+  ```bash
+  grep -rhoE 'uses: docker/login-action@[0-9a-f]{40}.*' .github/workflows/ | sort -u
+  ```
+
+  历史教训：`alauda-release.yaml` 自加入起 6 个 action 全是 tag 引用，导致该检查在 fork 的 PR 上
+  **连续失败了 9 次**（横跨 v0.156.0 升级、CVE 修复、resources.limits 三个 PR）都没人处理。
+  `main` 没开分支保护，它不挡合并，所以很容易被当成"历史噪音"忽略——**看到它红，先确认是不是自己新加的 `uses:`**。
+  已于 v0.157.0 升级期间修复（commit `71a4267e`）。
 - 触发时用 `-rc.<n>` 后缀 + `is_draft_release=true`：产物是 draft release，不会污染正式版本；
   `--draft` 的 release 在 publish 之前不会真的创建 git tag。
 - 各脚本的中间产物（merge 日志、构建日志、CSV diff、步骤间状态）都放在 `.git/otel-op-sync/` 下，
@@ -76,9 +109,11 @@ bash "$SKILL_DIR/scripts/sync.sh" <上游tag>
 `git merge <tag>`。按退出结果处理：
 
 - **MERGED（0）**：合并成功（merge 提交已自动产生），继续步骤 2。
-- **CONFLICT（2）**：脚本已列出冲突文件。参考背景知识，冲突基本只会出现在 `Makefile`（保留首行
-  `-include Makefile.alauda.mk`，同时合入上游新增内容）和 `.gitignore`（两边的 ignore 行都保留）。
-  若冲突出现在别的文件，说明该文件的 ACP 定制超出了已知的 9 个路径范围，**停下来向用户确认**再解决。
+- **CONFLICT（2）**：脚本已列出冲突文件。已知的冲突只有三类，都不必问用户，按下面解：
+  `Makefile`（保留首行 `-include Makefile.alauda.mk`，同时合入上游新增内容）、
+  `.gitignore`（两边的 ignore 行都保留）、**go 模块文件**（`go.mod`/`go.sum` 及 `apis/`、
+  `cmd/otel-allocator/integrationtest/` 子模块的同名文件，见下面一小节）。
+  冲突出现在**这三类以外**的文件，才说明 ACP 定制超出了已知范围，**停下来向用户确认**再解决。
   解决后 `git add <文件> && git commit --no-edit` 完成合并（禁止 amend），然后继续步骤 2。
 
   Makefile 的冲突形态要有心理准备：**上游也会往第 1 行塞东西**。v0.156.0 就把 `e2e-httproute`
@@ -96,12 +131,55 @@ bash "$SKILL_DIR/scripts/sync.sh" <上游tag>
   ```
 
   解法是 ACP 的 include 留在第 1 行、上游块紧随其后。**解完必须验证 include 仍然生效**，
-  肉眼看 `head` 不算数（缩进/位置错了照样"看着对"）：
+  肉眼看 `head` 不算数（缩进/位置错了照样"看着对"）。**两条命令要分开跑，别用 `&&` 串起来**——
+  `grep -c` 数出 0 个匹配时退出码是 1，会把后面的检查整个短路掉，看上去像"没输出所以没问题"：
 
   ```bash
   grep -c '<<<<<<<\|>>>>>>>' Makefile          # 必须是 0
   make -n alauda-patch >/dev/null && echo OK   # 能解析出 alauda-* 目标才说明 include 生效
   ```
+
+### go.mod / go.sum 冲突（最常见，v0.157.0 那次 4 个文件全是它）
+
+成因是固定的：`fix-image-vulns` skill 为修 CVE 手动 bump 过间接依赖，而上游每个 release 也在 bump
+同一批依赖，于是同一行两边都改 → 冲突。**处理原则是比版本号高低，而不是无脑选一边**：
+
+1. 先弄清 ACP 那侧到底为什么改。看提交消息，CVE 编号一般写得很清楚：
+
+   ```bash
+   git log --oneline <基线tag>..origin/main -- go.mod go.sum '*/go.mod' '*/go.sum'
+   git show <那个commit>          # 消息里通常列了 CVE/GHSA 编号与目标版本
+   ```
+
+2. 逐个比较冲突依赖的两侧版本：
+   - **上游 ≥ ACP 修复版本**（绝大多数情况，上游 bump 得比我们勤）→ 取上游，CVE 修复被自然覆盖；
+   - **上游 < ACP 修复版本** → **必须保留 ACP 的版本**，否则这次升级会把已修的漏洞放回去。
+     子模块尤其要留神：v0.157.0 那次上游 `apis/go.mod` 的 `golang.org/x/text` 还停在 v0.37.0，
+     比 ACP 的 v0.39.0 低，幸好那个文件自动合并保留了 ours——**自动合并成功 ≠ 结果正确，要点开确认**。
+
+3. 取上游用 `git checkout --theirs`，**它只改工作区、不改 index**，之后必须 `git add`，
+   否则文件一直是 `UU`（unmerged）状态，`git commit` 会拒绝：
+
+   ```bash
+   git checkout --theirs go.mod go.sum cmd/otel-allocator/integrationtest/go.mod cmd/otel-allocator/integrationtest/go.sum
+   ```
+
+4. **go.sum 不要手工解冲突**，删掉冲突标记后跑上游自带的 `make tidy`（v0.157.0 起有这个目标，
+   会遍历仓库里每个 go module 跑 `go mod tidy`）重建，几分钟，需要联网拉依赖：
+
+   ```bash
+   make tidy      # 老版本没有这个目标时，逐个模块 cd 进去 go mod tidy
+   ```
+
+5. 落地前验证一遍关键版本，确认 CVE 没被回退（把依赖名换成第 1 步查到的）：
+
+   ```bash
+   grep -E 'golang.org/x/text|google.golang.org/grpc |github.com/google/cel-go' go.mod apis/go.mod
+   ```
+
+   然后 `git add` 全部冲突文件 + `git commit --no-edit`，并确认 `git diff --name-only --diff-filter=U` 为空。
+   这几条结论（哪些取了上游、哪些保留了 ACP、对应 CVE 是否仍被覆盖）要写进 PR 正文和最终汇报——
+   这是评审者最关心的部分。
 - **失败（1）**：前置条件问题（工作区不干净、分支已存在、tag 不存在）。把脚本报错原样告知用户并询问如何处理，
   不要擅自 stash、删分支或换 tag。
 
@@ -129,14 +207,16 @@ bash "$SKILL_DIR/scripts/update-defaults.sh"
 bash "$SKILL_DIR/scripts/verify.sh"
 ```
 
-脚本依次跑三项检查（实测 v0.147.0 → v0.156.0 全程约 7.5 分钟）：
+脚本依次跑三项检查，全程 5~8 分钟。**前两项谁是瓶颈取决于缓存状态，别按固定印象预估**：
 
-1. `make manager` —— 编译 operator 二进制。**很快**（实测 26 秒，Go 依赖有缓存时），别以为编译是瓶颈；
+1. `make manager` —— 编译 operator 二进制。Go 依赖有缓存时 26 秒；上游大改依赖时要重编大量包，
+   实测 v0.156.0 → v0.157.0 用了 3 分 36 秒；
 2. `make ensure-update-is-noop` —— 校验 `zz_generated.*.go` / `bundle` / `config` / `docs/api` 与源码一致。
-   **真正的瓶颈在这里**（实测 7 分钟），因为它内部要下载 operator-sdk（83.8MB）和 kustomize，网络慢时更久；
+   首次要下载 operator-sdk（83.8MB）和 kustomize，实测 7 分钟；工具链已缓存时只要 1 分 40 秒；
 3. `make alauda-patch` —— 校验 `hack/alauda-patch.sh` 仍然可用（它写死了 bundle 路径和 yq 表达式，
    上游改动 bundle 布局时会失效）。几秒钟。跑完自动 `git checkout -- bundle/` 还原临时改动；
    本地没有 yq 或 `bundle/` 有未提交改动时会自动跳过。
+   **注意它只能发现"脚本跑不起来"，发现不了"选择器没选中"**（见背景知识的静默 no-op），后者靠步骤 4 的核对。
 
 看进度就 tail **后台任务的 output 文件**（只有干净的阶段行）。
 **不要直接 tail `.git/otel-op-sync/verify.log`** —— operator-sdk 用不带 `-s` 的 curl 下载，
@@ -161,7 +241,22 @@ git add .github/workflows/alauda-release.yaml && git commit -m "chore: update al
 
 这是整个升级里唯一需要真正做判断的环节。
 
-**先做一项强制核对：ACP 已 patch 的 env 在新版本源码里是否还被读取。**
+**先做两项强制核对，对应背景知识里的两种静默失效。**
+
+**核对一：patch 的 yq 选择器还能不能选中目标。** 脚本靠 deployment 名 + 容器名定位，
+上游改名就变成静默 no-op、退出码照样是 0：
+
+```bash
+yq '.spec.install.spec.deployments[].name' bundle/community/manifests/opentelemetry-operator.clusterserviceversion.yaml
+yq '.spec.install.spec.deployments[] | select(.name=="opentelemetry-operator-controller-manager").spec.template.spec.containers[].name' \
+   bundle/community/manifests/opentelemetry-operator.clusterserviceversion.yaml
+```
+
+必须分别出现 `opentelemetry-operator-controller-manager` 和 `manager`（与 `hack/alauda-patch.sh`
+里写死的两个 `select` 一致）。对不上就得同步改 patch 脚本的选择器，并停下来告诉用户。
+顺带 `grep -o "deploymentName: .*" ... | sort -u` 看一眼 webhook 指向，这个结果在步骤 4 的判断里还要复用。
+
+**核对二：ACP 已 patch 的 env 在新版本源码里是否还被读取。**
 `.env +=` 只追加不校验，上游删掉或改名任何一个 env，patch 都会静默失效（见背景知识）。
 从 `alauda/alauda-csv.yaml` 里取出 env 名单逐个查 `internal/config/env.go`：
 
@@ -220,6 +315,13 @@ bash "$SKILL_DIR/scripts/csv-diff.sh"
 另外，A 池里有不少是**历史遗留项**（上一版就存在、本次没变）。它们不属于"本次增量"，
 但如果之前从没走过这个 review 流程，仍要列进表格让用户过一遍——只是要在表格里标明来源是
 「A（历史）」还是「B 新增」，别让用户误以为都是这次上游刚改的。
+
+**「B 减 C = 空」是很常见的结果，别硬找活干。** 上游多数 patch 版本在 openshift CSV 上只动四类字段：
+`createdAt`、CSV `name`、镜像 tag、`version`——全是版本号，没有功能性新增（v0.156.0 → v0.157.0 就是如此，
+B 的 diff 只有 47 行且全是这四类）。判断依据很直接：B 的 diff 里除了这四类还剩什么。
+这种情况下照样把表格给全（A 池历史项 + 标注"上次已 review，结论不变"），
+但开头一句话就要说清"本次增量为零"，AskUserQuestion 的推荐项直接给"都不跟进"，
+别把历史项重新包装成新问题耗用户的时间。
 
 然后输出**编号报告**给用户 review：
 
@@ -333,7 +435,8 @@ bash "$SKILL_DIR/scripts/watch-release.sh"
 
 用清晰的列表汇报下面这些，这是用户验收的依据：
 
-1. **分支与版本**：分支名、`OLD → NEW` 版本、合入的上游提交数、冲突及解决方式；
+1. **分支与版本**：分支名、`OLD → NEW` 版本、合入的上游提交数、冲突及解决方式。
+   go 模块冲突要逐个依赖说清"取了哪边、CVE 是否仍被覆盖"，别只写一句"解决了依赖冲突"；
 2. **流水线默认值**：`bundle_version` 和 `collector_tag` 的新旧值，collector tag 的来源；
    若用户在步骤 6 换了 `release_version` 版本线，这里要提醒 workflow 里的默认值已过期；
 3. **本地校验**：VERIFY_OK/FAILED，失败过则说明修了什么；外加步骤 4 那项 env 有效性核对的结论；

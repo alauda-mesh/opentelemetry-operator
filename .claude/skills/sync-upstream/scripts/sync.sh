@@ -89,8 +89,12 @@ if [[ "$MERGE_OK" -eq 0 ]]; then
   echo "冲突文件："
   printf '%s\n' "$CONFLICTS" | sed 's/^/  /'
   echo
-  echo "提示：ACP 相对上游只定制了 9 个文件，其中与上游共享、可能冲突的只有 Makefile 和 .gitignore，"
-  echo "      两者都是「两边都要」——保留 ACP 新增行的同时合入上游新增行。"
+  echo "提示：已知的冲突只有三类，按 SKILL.md 步骤 1 处理，不必问用户："
+  echo "      1) Makefile / .gitignore —— 「两边都要」，保留 ACP 新增行的同时合入上游新增行；"
+  echo "      2) go.mod / go.sum（含 apis/、cmd/otel-allocator/integrationtest/ 子模块）——"
+  echo "         成因是 ACP 修 CVE 时 bump 过依赖。比版本号高低：上游更高就取上游（git checkout --theirs"
+  echo "         + git add），上游更低必须保留 ACP 版本，否则漏洞会被放回去；go.sum 别手工解，跑 make tidy 重建；"
+  echo "      3) 以上都不是的文件 —— 定制面变了，停下来问用户。"
   echo "      解决后用 git add <文件> && git commit --no-edit 完成合并（禁止 amend），再继续步骤 2。"
   exit 2
 fi
