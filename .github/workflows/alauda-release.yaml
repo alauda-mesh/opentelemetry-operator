@@ -7,7 +7,7 @@ on:
       release_version:
         description: "Release version"
         required: true
-        default: "2.1.0"
+        default: "2.1.0-r0"
       bundle_channels:
         description: "Bundle channels"
         required: true
@@ -20,7 +20,7 @@ on:
       collector_tag:
         description: "OpenTelemetry Collector tag"
         required: true
-        default: "0.158.0-r0"
+        default: "0.158.0-r1"
       is_draft_release:
         description: "Draft release"
         type: boolean
@@ -78,7 +78,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.26.6"
+          go-version: "1.26.7"
           cache: false
 
       - name: Build the operator binary for each supported architecture
